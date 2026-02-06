@@ -1,0 +1,13 @@
+SYMBOLS = [
+    "BTC/USDT", 
+    "ETH/USDT", 
+    "SOL/USDT", 
+    "XRP/USDT", 
+    "ADA/USDT",
+    "BNB/USDT"
+]
+
+TIMEFRAME = "5m"
+
+RISK_PER_TRADE = 1
+MAX_DAILY_LOSS = 5
