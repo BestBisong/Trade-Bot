@@ -4,14 +4,12 @@ from signals.signal_generator import generate
 from execution.broker import BitgetBroker
 from risk.position_sizer import PositionSizer
 from risk.risk_manager import RiskManager
-from risk.kill_switch import MarketKillSwitch
+from data.external_source import ExternalDataManager
 from signals.telegram_notifier import notify
 from config.settings import SYMBOLS, TIMEFRAME
 from strategies.ml_strategy import MLStrategy
-from risk.stop_loss import stop_loss
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s', datefmt='%H:%M:%S')
-
 METADATA_FILE = "active_trades.json"
 
 def save_metadata(data):
@@ -20,92 +18,75 @@ def save_metadata(data):
         json.dump(serializable, f, indent=4)
 
 def load_metadata():
-    if os.path.exists(METADATA_FILE):
-        with open(METADATA_FILE, 'r') as f:
-            data = json.load(f)
-            return {k: {**v, "entry_time": datetime.datetime.fromisoformat(v["entry_time"])} for k, v in data.items()}
+    if os.path.exists(METADATA_FILE) and os.path.getsize(METADATA_FILE) > 0:
+        try:
+            with open(METADATA_FILE, 'r') as f:
+                data = json.load(f)
+                return {k: {**v, "entry_time": datetime.datetime.fromisoformat(v["entry_time"])} for k, v in data.items()}
+        except json.JSONDecodeError:
+            print(">>> Repairing corrupted active_trades.json...")
     return {}
 
-def check_higher_timeframe_trend(symbol):
-    """Balanced Filter: Allows trades if Trending OR Oversold (Bottom Hunting)."""
-    try:
-        df_1h = fetch(symbol, timeframe='1h', limit=50)
-        if df_1h is None or len(df_1h) < 20: return False
-
-        # Trend: Price near/above 20 SMA
-        sma_20 = df_1h['close'].rolling(20).mean().iloc[-1]
-        current_price = df_1h['close'].iloc[-1]
-        is_trending = current_price > (sma_20 * 0.99)
-        
-        # Mean Reversion: 1h RSI is Oversold
-        delta = df_1h['close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rsi_1h = 100 - (100 / (1 + (gain / loss).iloc[-1]))
-        is_oversold = rsi_1h < 35
-        
-        return is_trending or is_oversold
-    except:
-        return False
-
 def run_bot():
-    print(">>> Bot initializing Pro Features (Balanced Mode)...")
+    print(">>> Bot initializing High-Performance Day Trading Mode...")
     broker = BitgetBroker(paper_mode=True)
-    sizer = PositionSizer(risk_percent=2) 
-    risk_mgr = RiskManager(max_daily_loss=5)
+    sizer = PositionSizer(risk_percent=2)
+    risk_mgr = RiskManager(max_daily_loss=10)
     ml_agent = MLStrategy()
+    ext_data = ExternalDataManager()
     
     trade_metadata = load_metadata()
-    open_on_exchange = list(broker.tracker.open_positions.keys())
-    trade_metadata = {s: m for s, m in trade_metadata.items() if s in open_on_exchange}
-    save_metadata(trade_metadata)
-
-    ml_agent.train([fetch(s, limit=1000) for s in SYMBOLS])
-    notify("🚀 Pro Bot Started: Balanced Risk & Trailing Stops Active.")
-
-    last_summary_date = None
+    last_heartbeat = time.time()
+    
+    # Train ML with deep 2000 candle history
+    ml_agent.train([fetch(s, limit=2000) for s in SYMBOLS])
+    notify("Bot Online: Session Started. Scanning active.")
 
     while True:
         now = datetime.datetime.now()
-        if not (now.weekday() < 5 and 10 <= now.hour < 16):
-            if now.hour == 16 and last_summary_date != now.date():
-                metrics = broker.tracker.get_daily_metrics()
-                if metrics: notify(f"📊 SUMMARY | PnL: {metrics['pnl']:.2f} USDT")
-                last_summary_date = now.date()
-            time.sleep(300)
-            continue
+        
+        # HEARTBEAT LOGGER
+        # Prints to console every 60 seconds so you know it's not "stuck"
+        if time.time() - last_heartbeat > 60:
+            logging.info(f"HEARTBEAT | Scanning {len(SYMBOLS)} symbols | Trades Active: {len(broker.tracker.open_positions)}")
+            last_heartbeat = time.time()
 
-        # Manage Open Trades (Trailing SL/TP)
+        # 1. Day Trading Time Window (08:00 to 18:00)
+        market_open = now.replace(hour=8, minute=0, second=0)
+        market_close = now.replace(hour=18, minute=0, second=0)
+
+        # 2. MANAGE EXITS (TP, SL, or Exhaustion)
         for symbol in list(broker.tracker.open_positions.keys()):
             meta = trade_metadata.get(symbol)
             if not meta: continue
             
             current_price = broker.price(symbol)
-            
-            # Trailing Stop: Buffer 1.5% below current price to lock in gains
-            potential_sl = current_price * 0.985 
-            if potential_sl > meta["sl"]:
-                meta["sl"] = potential_sl
-                save_metadata(trade_metadata)
+            time_elapsed = (now - meta["entry_time"]).total_seconds() / 60
+            is_exhausted = time_elapsed >= meta["duration"]
 
-            if current_price <= meta["sl"] or current_price >= meta["tp"]:
-                amount = 0
-                for t in reversed(broker.tracker.trades):
-                    if t['symbol'] == symbol and t['side'] == 'buy':
-                        amount = t['amount']; break
+            if current_price <= meta["sl"] or current_price >= meta["tp"] or is_exhausted:
+                reason = "TIMEOUT" if is_exhausted else "TP/SL"
+                amount = broker.tracker.open_positions[symbol]['amount']
                 broker.execute_order(symbol, "sell", amount)
                 trade_metadata.pop(symbol, None)
                 save_metadata(trade_metadata)
-                notify(f"🏁 EXIT: {symbol} at {current_price:.2f}")
+                notify(f"🏁 EXIT {symbol}: {reason} at {current_price:.4f}")
 
-        # Scan for Opportunities
+        if not (market_open <= now <= market_close):
+            if now.hour == 18 and now.minute < 5:
+                logging.info("🌙 Market Closed. Entering standby mode.")
+            time.sleep(300)
+            continue
+
+        # 3. SCAN FOR NEW OPPORTUNITIES
         for symbol in SYMBOLS:
             if symbol in broker.tracker.open_positions: continue
             try:
-                if not check_higher_timeframe_trend(symbol): continue
+                sentiment = ext_data.get_market_sentiment(symbol)
+                stock_context = ext_data.get_stock_context("^IXIC")
 
-                df = fetch(symbol, timeframe=TIMEFRAME)
-                signal, status, duration = generate(df, ml_agent) 
+                df = fetch(symbol, timeframe=TIMEFRAME, limit=200)
+                signal, status, window = generate(df, ml_agent, sentiment, stock_context)
                 current_price = broker.price(symbol)
 
                 if signal == "BUY" and risk_mgr.allowed():
@@ -113,13 +94,16 @@ def run_bot():
                     if amount > 0:
                         broker.execute_order(symbol, "buy", amount)
                         trade_metadata[symbol] = {
-                            "entry_time": now, "duration": duration,
-                            "sl": current_price * 0.98, "tp": current_price * 1.05
+                            "entry_time": now,
+                            "duration": window, 
+                            "sl": current_price * 0.98,
+                            "tp": current_price * 1.05
                         }
                         save_metadata(trade_metadata)
-                        notify(f"⚡ BUY: {symbol}\nReason: {status}\nSL: {trade_metadata[symbol]['sl']:.2f}")
+                        notify(f"⚡ BUY: {symbol}\nWindow: {window}m\nConfidence Score: {sentiment:.2f}")
             except Exception as e:
                 logging.error(f"SCAN_ERR: {symbol} - {e}")
+        
         time.sleep(60)
 
 if __name__ == "__main__":
