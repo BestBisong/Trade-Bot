@@ -3,7 +3,6 @@ import logging
 import os
 import requests
 from dotenv import load_dotenv
-from cryptopanic import CryptoPanicClient
 
 load_dotenv()
 
@@ -12,33 +11,34 @@ class ExternalDataManager:
         self.logger = logging.getLogger(__name__)
         self.cp_token = os.getenv("CRYPTOPANIC_API_KEY")
         self.news_key = os.getenv("NEWS_API_KEY")
-        
-        # Initialize CryptoPanic Client if token exists
-        self.cp_client = CryptoPanicClient(auth_token=self.cp_token) if self.cp_token else None
 
     def get_market_sentiment(self, symbol="BTC"):
         """
-        Calculates a real-time sentiment score (0.0 to 1.0) using CryptoPanic.
+        Calculates sentiment by calling the CryptoPanic API directly to avoid 
+        library validation errors.
         """
-        if not self.cp_client:
+        if not self.cp_token:
             return 0.5
 
         try:
             coin = symbol.split('/')[0] if '/' in symbol else symbol
-            posts = self.cp_client.get_posts(currencies=[coin], filter="hot")
+            # Direct API call to avoid Pydantic/Library errors seen in logs
+            url = f"https://cryptopanic.com/api/v1/posts/?auth_token={self.cp_token}&currencies={coin}&filter=hot"
+            response = requests.get(url, timeout=10)
+            data = response.json()
             
-            if not posts or 'results' not in posts or len(posts['results']) == 0:
+            posts = data.get('results', [])
+            if not posts:
                 return 0.5
 
-            total_pos = sum(p.get('votes', {}).get('positive', 0) for p in posts['results'])
-            total_neg = sum(p.get('votes', {}).get('negative', 0) for p in posts['results'])
+            total_pos = sum(p.get('votes', {}).get('positive', 0) for p in posts)
+            total_neg = sum(p.get('votes', {}).get('negative', 0) for p in posts)
             total_votes = total_pos + total_neg
 
             return round(total_pos / total_votes, 2) if total_votes > 0 else 0.5
         except Exception as e:
             self.logger.error(f"Sentiment Error: {e}")
             return 0.5
-
     def get_financial_news_impact(self):
         """
         Uses NewsAPI to check for global 'Market Crash' keywords.

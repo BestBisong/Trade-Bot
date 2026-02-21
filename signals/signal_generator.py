@@ -14,20 +14,20 @@ def generate(df, ml, sentiment=0.5, stock_context=0.0):
         "ML": ml.signal(df)
     }
     
-    score = 0
-    if signals["ML"] == "BUY": score += 2
-    if signals["SMA"] == "BUY": score += 1
-    if signals["RSI"] == "BUY": score += 1
-    if signals["BB"] == "BUY": score += 1
+    buy_score = 0
+    sell_score = 0
     
-    # Contextual Modifiers
-    if sentiment > 0.65: score += 1
-    if stock_context < -0.01: score -= 2 # Negative stock market drag
+    # Weighting: ML = 2 points, Others = 1 point
+    for key, val in signals.items():
+        weight = 2 if key == "ML" else 1
+        if val == "BUY": buy_score += weight
+        if val == "SELL": sell_score += weight
 
-    # Signal Returns: (Signal, Reason, Window_Minutes)
-    if score >= 5 and signals["ML"] == "BUY":
-        return "BUY", "ULTRA_CONFIDENCE", 60
-    elif score >= 3 and signals["ML"] == "BUY":
-        return "BUY", "BALANCED_ENTRY", 30
+    # Logic for entering trades with specific time windows
+    if buy_score >= 3 and signals["ML"] == "BUY":
+        return "BUY", "BULLISH_ALIGNMENT", 60 # 60 minute window for long
+        
+    if sell_score >= 3 and signals["ML"] == "SELL":
+        return "SELL", "BEARISH_ALIGNMENT", 30 # 30 minute window for short
         
     return "HOLD", "INSUFFICIENT_ALIGNMENT", 0
