@@ -1,8 +1,7 @@
 SYMBOLS = [
     "BTC/USDT", 
     "ETH/USDT", 
-    "SOL/USDT", 
-    "XRP/USDT", 
+    "SOL/USDT",  
     "ADA/USDT",
     "BNB/USDT"
 ]

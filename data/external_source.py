@@ -14,20 +14,36 @@ class ExternalDataManager:
 
     def get_market_sentiment(self, symbol="BTC"):
         """
-        Calculates sentiment by calling the CryptoPanic API directly to avoid 
-        library validation errors.
+        Calculates sentiment by calling the CryptoPanic API directly.
+        Uses 'params' to avoid 404 errors caused by improper URL construction.
         """
         if not self.cp_token:
             return 0.5
 
         try:
-            coin = symbol.split('/')[0] if '/' in symbol else symbol
-            # Direct API call to avoid Pydantic/Library errors seen in logs
-            url = f"https://cryptopanic.com/api/v1/posts/?auth_token={self.cp_token}&currencies={coin}&filter=hot"
-            response = requests.get(url, timeout=10)
-            data = response.json()
+            # Ensure the ticker is uppercase (e.g., BTC)
+            coin = symbol.split('/')[0].upper() if '/' in symbol else symbol.upper()
             
+            # API endpoint base (without trailing query string to avoid 404)
+            url = "https://cryptopanic.com/api/v1/posts/"
+            
+            # Using params handles URL encoding correctly for the Basic plan
+            params = {
+                "auth_token": self.cp_token,
+                "currencies": coin,
+                "filter": "hot"
+            }
+            
+            response = requests.get(url, params=params, timeout=10)
+            
+            # Check for success before parsing JSON to prevent crashes
+            if response.status_code != 200:
+                self.logger.error(f"CryptoPanic API Error: Status {response.status_code} for {coin}")
+                return 0.5
+                
+            data = response.json()
             posts = data.get('results', [])
+            
             if not posts:
                 return 0.5
 
@@ -39,6 +55,7 @@ class ExternalDataManager:
         except Exception as e:
             self.logger.error(f"Sentiment Error: {e}")
             return 0.5
+
     def get_financial_news_impact(self):
         """
         Uses NewsAPI to check for global 'Market Crash' keywords.
@@ -48,8 +65,13 @@ class ExternalDataManager:
 
         try:
             url = f"https://newsapi.org/v2/everything?q=market+crash&sortBy=relevancy&apiKey={self.news_key}"
-            response = requests.get(url).json()
-            headlines = [a['title'].lower() for a in response.get('articles', [])[:10]]
+            response = requests.get(url)
+            
+            if response.status_code != 200:
+                return 0.0
+                
+            data = response.json()
+            headlines = [a['title'].lower() for a in data.get('articles', [])[:10]]
             neg_words = ['crash', 'drop', 'bear', 'plummet', 'hack']
             neg_count = sum(1 for h in headlines if any(word in h for word in neg_words))
             return -0.1 * neg_count 
@@ -59,12 +81,15 @@ class ExternalDataManager:
     def get_stock_context(self, ticker="^IXIC"):
         """
         Identifies if NASDAQ is leading a move. Returns pct change from open.
+        Uses 60d period internally to avoid 'NoneType' errors on specific tickers.
         """
         try:
             stock = yf.Ticker(ticker)
-            hist = stock.history(period="2d", interval="5m")
-            if not hist.empty:
-                return round((hist['Close'].iloc[-1] - hist['Open'].iloc[0]) / hist['Open'].iloc[0], 4)
+            # Use max intraday period (60d) to ensure data availability
+            hist = stock.history(period="60d", interval="5m")
+            if hist is not None and not hist.empty:
+                # Calculate change from today's open to current price
+                return round((hist['Close'].iloc[-1] - hist['Open'].iloc[-1]) / hist['Open'].iloc[-1], 4)
             return 0.0
         except Exception:
             return 0.0

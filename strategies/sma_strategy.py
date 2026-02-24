@@ -6,7 +6,7 @@ class SMAStrategy(BaseStrategy):
         sma_fast = prices.rolling(20).mean()
         sma_slow = prices.rolling(50).mean()
 
-        print(f"SMA Fast: {sma_fast.iloc[-1]}, SMA Slow: {sma_slow.iloc[-1]}")
+        # print(f"SMA Fast: {sma_fast.iloc[-1]}, SMA Slow: {sma_slow.iloc[-1]}")
 
         if sma_fast.iloc[-1] > sma_slow.iloc[-1]:
             return "BUY"

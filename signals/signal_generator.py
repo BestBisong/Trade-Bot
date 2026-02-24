@@ -17,13 +17,17 @@ def generate(df, ml, sentiment=0.5, stock_context=0.0):
     buy_score = 0
     sell_score = 0
     
-    # Weighting: ML = 2 points, Others = 1 point
+    
     for key, val in signals.items():
         weight = 2 if key == "ML" else 1
         if val == "BUY": buy_score += weight
         if val == "SELL": sell_score += weight
 
-    # Logic for entering trades with specific time windows
+    # UPDATED: Added debug logging to identify why trades are not triggering
+    # This will print the results of every indicator in your console
+    print(f"DEBUG | Signal Scan | Score: B:{buy_score} S:{sell_score} | ML: {signals['ML']} | SMA: {signals['SMA']} | RSI: {signals['RSI']} | BB: {signals['BB']}")
+
+    
     if buy_score >= 3 and signals["ML"] == "BUY":
         return "BUY", "BULLISH_ALIGNMENT", 60 # 60 minute window for long
         
