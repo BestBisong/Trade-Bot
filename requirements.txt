@@ -11,3 +11,4 @@ mplfinance
 yfinance
 scikit-learn
 joblib
+pytest

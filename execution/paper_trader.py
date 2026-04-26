@@ -2,10 +2,10 @@ import json, os
 from datetime import datetime
 
 class PaperTrader:
-    def __init__(self, balance=15.0, filename="trade_history.json"):
+    def __init__(self, balance=100.0, filename="trade_history.json"):
         self.filename = filename
-        self.initial_balance = 15.0 # Starting point calibration
-        self.balance = 15.0
+        self.initial_balance = 100.0
+        self.balance = 100.0
         self.trades = []
         self.open_positions = {}
 
@@ -18,7 +18,7 @@ class PaperTrader:
                 # Inherit balance from the last successful trade
                 if self.trades:
                     last_trade = self.trades[-1]
-                    self.balance = last_trade.get('balance_after', 15.0)
+                    self.balance = last_trade.get('balance_after', 100.0)
                 
                 self._sync_open_positions()
                 print(f"DATABASE | Recalibrated Start: {self.initial_balance} | Current: {self.balance}")

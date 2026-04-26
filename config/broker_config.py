@@ -1,17 +1,11 @@
-import os
-from dotenv import load_dotenv
+# --- UPDATED BROKER_CONFIG.PY ---
+BROKER = "bybit"
 
-load_dotenv()
+BYBIT_API_KEY = os.getenv("BYBIT_API_KEY")
+BYBIT_API_SECRET = os.getenv("BYBIT_API_SECRET")
 
-BROKER = "bitget" 
-
-
-API_KEY = os.getenv("BITGET_API_KEY")
-SECRET = os.getenv("BITGET_API_SECRET")
-PASSWORD = os.getenv("BITGET_PASSWORD")
-
-BITGET = {
-    "name": "bitget",
-    "market": "spot",
+BYBIT = {
+    "name": "bybit",
+    "market": "spot", 
     "base_asset": "USDT"
 }
