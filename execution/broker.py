@@ -1,7 +1,8 @@
 import logging
-import ccxt
+import ccxt.async_support as ccxt
 import os
 import json
+import asyncio
 from datetime import datetime, timedelta
 from config.settings import SESSION_START, SESSION_END
 
@@ -21,69 +22,60 @@ class BybitBroker:
         if self.paper_mode:
             logging.info("BROKER | Bybit Paper Mode Active.")
 
+    async def close(self):
+        await self.exchange.close()
+
     def is_window_active(self):
-        """
-        JARVIS UPGRADE: Automated Time-Window Intelligence.
-        Checks if the current time falls within the 3-hour Power Hour session.
-        """
+        """Checks if current time is within session window."""
         now = datetime.now().time()
-        
         try:
-            # Parse session times from config
             start_time = datetime.strptime(SESSION_START, "%H:%M").time()
             end_time = datetime.strptime(SESSION_END, "%H:%M").time()
-            
-            # DISCIPLINE FILTER: Buffer Zone
-            # We stop taking NEW trades 15 minutes before the session ends 
-            # so we aren't trapped in a position when the bot shuts down.
-            buffer_dt = datetime.combine(datetime.today(), end_time) - timedelta(minutes=15)
-            new_trade_cutoff = buffer_dt.time()
-
-            # Logic: We are active if between Start and End
-            if start_time <= now <= end_time:
-                return True
-            
-            return False
+            return start_time <= now <= end_time
         except Exception as e:
             logging.error(f"BROKER | Time window error: {e}")
             return False
 
     def can_open_new_trades(self):
-        """Returns True only when the session is active and outside cutoff buffer."""
+        """Checks if outside the end-of-session buffer."""
         now = datetime.now().time()
-
         try:
-            start_time = datetime.strptime(SESSION_START, "%H:%M").time()
             end_time = datetime.strptime(SESSION_END, "%H:%M").time()
-
-            buffer_dt = datetime.combine(datetime.today(), end_time) - timedelta(minutes=15)
-            new_trade_cutoff = buffer_dt.time()
-
-            return start_time <= now <= new_trade_cutoff
-        except Exception as e:
-            logging.error(f"BROKER | New trade cutoff error: {e}")
+            cutoff = (datetime.combine(datetime.today(), end_time) - timedelta(minutes=15)).time()
+            return self.is_window_active() and now <= cutoff
+        except Exception:
             return False
 
-    def get_session_status(self):
-        """Returns a string status for the dashboard UI."""
-        if self.is_window_active():
-            now = datetime.now().time()
-            end = datetime.strptime(SESSION_END, "%H:%M").time()
-            rem = datetime.combine(datetime.today(), end) - datetime.combine(datetime.today(), now)
-            return f"ACTIVE | Remaining: {str(rem).split('.')[0]}"
-        return "INACTIVE | Awaiting Power Hour"
-
-    def price(self, symbol):
-        """Fetches the latest tick price with error handling."""
+    async def price(self, symbol):
+        """Fetches the latest tick price asynchronously."""
         try:
-            ticker = self.exchange.fetch_ticker(symbol)
+            ticker = await self.exchange.fetch_ticker(symbol)
             return ticker['last']
         except Exception as e:
             logging.error(f"BROKER | Price Fetch Error for {symbol}: {e}")
             return None
 
-    def stop_session(self):
-        """Emergency Manual Stop."""
-        logging.warning("BROKER | Master Kill-Switch triggered by user.")
-        # This can be used to override the automated timer if needed
-        return False
+    async def place_order(self, symbol, side, qty, price=None, params=None):
+        """
+        Executes a trade on Bybit.
+        In paper_mode (virtual wallet), this just logs and returns success.
+        In live mode, it hits the Bybit API.
+        """
+        if self.paper_mode:
+            logging.info(f"VIRTUAL_ORDER | {side.upper()} {qty} {symbol} @ {price}")
+            return {"id": "virtual_id_" + str(datetime.now().timestamp()), "status": "closed"}
+
+        try:
+            order_type = 'limit' if price else 'market'
+            order = await self.exchange.create_order(symbol, order_type, side, qty, price, params)
+            return order
+        except Exception as e:
+            logging.error(f"BROKER | Order Placement Error: {e}")
+            return None
+
+    async def cancel_order(self, order_id, symbol):
+        if self.paper_mode: return True
+        try:
+            return await self.exchange.cancel_order(order_id, symbol)
+        except Exception:
+            return False

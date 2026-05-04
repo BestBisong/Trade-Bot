@@ -1,17 +1,17 @@
 {
   "params": {
-    "ml_conf_long_trending": 0.58,
-    "ml_conf_long_ranging": 0.61,
-    "ml_conf_short_trending": 0.42,
-    "ml_conf_short_ranging": 0.39,
-    "atr_min_pct": 0.0017000000000000001,
-    "stop_atr_scale": 1.03
+    "ml_conf_long_trending": 0.59,
+    "ml_conf_long_ranging": 0.62,
+    "ml_conf_short_trending": 0.41,
+    "ml_conf_short_ranging": 0.38,
+    "atr_min_pct": 0.0019000000000000002,
+    "stop_atr_scale": 1.06
   },
-  "updated_at": "2026-04-23T11:17:50.549143",
-  "next_review_at": "2026-04-30T11:17:50.549143",
+  "updated_at": "2026-05-04T10:25:09.882824",
+  "next_review_at": "2026-05-11T10:25:09.882824",
   "last_metrics": {
     "win_rate": 0.0,
-    "avg_window_pnl": 0.0,
+    "avg_window_pnl": NaN,
     "worst_drawdown_pct": 0.0,
     "total_windows": 20
   },
