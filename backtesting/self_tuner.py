@@ -86,12 +86,12 @@ def tune_from_walk_forward(metrics, current_params):
 
     action = "hold"
 
-    # Poor quality regime: tighten entries and widen stop room slightly.
+    # Poor quality: move thresholds toward 0.5 together (never push long to 0.62 and short to 0.38)
     if win_rate < 52.0 or avg_pnl < 0:
-        params["ml_conf_long_trending"] += 0.01
-        params["ml_conf_long_ranging"] += 0.01
-        params["ml_conf_short_trending"] -= 0.01
-        params["ml_conf_short_ranging"] -= 0.01
+        params["ml_conf_long_trending"] = min(params["ml_conf_long_trending"] + 0.01, 0.58)
+        params["ml_conf_long_ranging"] = min(params["ml_conf_long_ranging"] + 0.01, 0.58)
+        params["ml_conf_short_trending"] = max(params["ml_conf_short_trending"] - 0.01, 0.42)
+        params["ml_conf_short_ranging"] = max(params["ml_conf_short_ranging"] - 0.01, 0.42)
         params["atr_min_pct"] += 0.0002
         params["stop_atr_scale"] += 0.03
         action = "tighten"

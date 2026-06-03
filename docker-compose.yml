@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    restart: always
+    volumes:
+      # Ensures trading bot state, history, and active positions persist on the host VPS
+      - ./bot_state.json:/app/bot_state.json
+      - ./active_trades.json:/app/active_trades.json
+      - ./scan_heartbeat.json:/app/scan_heartbeat.json
+      - ./trade_history.json:/app/trade_history.json
+      - ./logs:/app/logs
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    restart: always
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}

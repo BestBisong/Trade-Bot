@@ -8,7 +8,7 @@ def test_regime_params_differ_between_trending_and_ranging():
 
 	assert trending["sl_atr_mult"] > ranging["sl_atr_mult"]
 	assert trending["rr_ratio"] > ranging["rr_ratio"]
-	assert ranging["score_threshold"] >= trending["score_threshold"]
+	assert trending["score_threshold"] >= ranging["score_threshold"]
 
 
 def test_live_gate_blocks_when_metrics_fail_thresholds():

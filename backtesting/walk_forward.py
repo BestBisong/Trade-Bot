@@ -2,6 +2,10 @@ import datetime
 import json
 import os
 
+from strategies.execution_levels import stop_distance
+from strategies.regime import detect_market_regime, get_regime_params
+from execution.sizing import apply_slippage, settlement_pnl
+
 
 def _safe_write_json(path, payload):
     with open(path, "w") as f:
@@ -21,6 +25,75 @@ def _equity_curve_metrics(equity_curve):
     return {"max_drawdown_pct": abs(max_dd) * 100.0}
 
 
+def _simulate_window(test_slice, trend_df, model, tuned_params, initial_balance, taker_fee_rate):
+    """Mini backtest with TP/SL exits aligned to live bot."""
+    equity = initial_balance
+    equity_curve = [equity]
+    trades = 0
+    wins = 0
+    open_trade = None
+    last_close_i = -50
+
+    for i in range(60, len(test_slice) - 3):
+        sub = test_slice.iloc[: i + 1]
+        price = float(sub["close"].iloc[-1])
+        trend_sub = trend_df.loc[trend_df.index <= sub.index[-1]].tail(150)
+        if trend_sub.empty:
+            continue
+
+        if open_trade:
+            hit_tp = (open_trade["side"] == "buy" and price >= open_trade["tp"]) or (
+                open_trade["side"] == "sell" and price <= open_trade["tp"]
+            )
+            hit_sl = (open_trade["side"] == "buy" and price <= open_trade["sl"]) or (
+                open_trade["side"] == "sell" and price >= open_trade["sl"]
+            )
+            if hit_tp or hit_sl:
+                exit_fill = apply_slippage(price, open_trade["side"], 5)
+                pnl = settlement_pnl(
+                    open_trade["entry"],
+                    exit_fill,
+                    open_trade["qty"],
+                    open_trade["side"],
+                    taker_fee_rate,
+                )
+                equity += pnl
+                equity_curve.append(equity)
+                trades += 1
+                if pnl > 0:
+                    wins += 1
+                open_trade = None
+                last_close_i = i
+            continue
+
+        if i - last_close_i < 12:
+            continue
+
+        from signals.signal_generator import generate
+
+        signal, _, _ = generate(sub, trend_sub, model, tuned_params=tuned_params)
+        if signal not in ["BUY", "SELL"]:
+            continue
+
+        regime = detect_market_regime(sub, trend_sub)
+        params = get_regime_params(regime)
+        sl_dist = stop_distance(sub, regime, tuned_params)
+        if sl_dist <= 0:
+            continue
+
+        entry = apply_slippage(price, signal.lower(), 5)
+        qty = (equity * 0.01) / sl_dist
+        qty = min(qty, (equity * 0.25) / entry)
+        if qty <= 0 or qty * entry < 5:
+            continue
+
+        sl = entry - sl_dist if signal == "BUY" else entry + sl_dist
+        tp = entry + sl_dist * params["rr_ratio"] if signal == "BUY" else entry - sl_dist * params["rr_ratio"]
+        open_trade = {"side": signal.lower(), "entry": entry, "sl": sl, "tp": tp, "qty": qty}
+
+    return equity, equity_curve, trades, wins
+
+
 def run_walk_forward_validation(
     symbols,
     timeframe,
@@ -30,14 +103,17 @@ def run_walk_forward_validation(
     test_bars=120,
     step_bars=120,
     taker_fee_rate=0.0006,
+    tuned_params=None,
 ):
-    """Evaluate strategy with rolling train/test windows and return aggregate metrics."""
     from backtesting.historical_data import fetch_historical
-    from signals.signal_generator import generate
     from strategies.ml_strategy import MLStrategy
+    from backtesting.self_tuner import load_tuned_params
+
+    if tuned_params is None:
+        tuned_params = load_tuned_params()["params"]
 
     report = {
-        "generated_at": datetime.datetime.utcnow().isoformat(),
+        "generated_at": datetime.datetime.now(datetime.UTC).isoformat(),
         "symbols": symbols,
         "windows": [],
         "aggregate": {},
@@ -60,39 +136,17 @@ def run_walk_forward_validation(
             train_slice = df.iloc[start - train_bars : start]
             test_slice = df.iloc[start : start + test_bars]
 
-            model = MLStrategy(model_path=f"tmp_walkforward_{symbol.replace('/', '_')}.joblib")
-            model.continuous_learn(train_slice)
+            model = MLStrategy(model_path=None, load_pretrained=False)
+            model.fit_from_dataframe(train_slice)
 
-            equity = initial_balance
-            equity_curve = [equity]
-            trades = 0
-            wins = 0
-
-            for i in range(60, len(test_slice) - 3):
-                sub = test_slice.iloc[: i + 1]
-                trend_sub = trend_df.loc[trend_df.index <= sub.index[-1]].tail(150)
-                if trend_sub is None or trend_sub.empty:
-                    continue
-
-                signal, _, _ = generate(sub, trend_sub, model)
-                if signal not in ["BUY", "SELL"]:
-                    continue
-
-                entry = float(sub["close"].iloc[-1])
-                exit_price = float(sub["close"].shift(-3).iloc[-1])
-                if entry <= 0 or exit_price <= 0:
-                    continue
-
-                qty = (equity * 0.01) / max(abs(entry * 0.002), 1e-9)
-                gross = (exit_price - entry) * qty if signal == "BUY" else (entry - exit_price) * qty
-                fees = (entry + exit_price) * qty * taker_fee_rate
-                pnl = gross - fees
-
-                trades += 1
-                if pnl > 0:
-                    wins += 1
-                equity += pnl
-                equity_curve.append(equity)
+            equity, equity_curve, trades, wins = _simulate_window(
+                test_slice,
+                trend_df,
+                model,
+                tuned_params,
+                initial_balance,
+                taker_fee_rate,
+            )
 
             metrics = _equity_curve_metrics(equity_curve)
             window_report = {
@@ -129,7 +183,6 @@ def run_walk_forward_validation(
 
 
 def live_gate_from_walk_forward(report, min_win_rate=52.0, min_windows=3, max_drawdown_pct=12.0):
-    """Return whether walk-forward stats are good enough for live capital."""
     agg = report.get("aggregate", {})
     total_windows = int(agg.get("total_windows", 0))
     win_rate = float(agg.get("win_rate", 0.0))

@@ -28,12 +28,27 @@ def fetch_historical(
     since_ts = since
 
     while True:
-        candles = exchange.fetch_ohlcv(
-            symbol,
-            timeframe=timeframe,
-            since=since_ts,
-            limit=limit
-        )
+        # Fetch with robust network retry logic
+        candles = None
+        for attempt in range(5):
+            try:
+                candles = exchange.fetch_ohlcv(
+                    symbol,
+                    timeframe=timeframe,
+                    since=since_ts,
+                    limit=limit
+                )
+                break
+            except (ccxt.NetworkError, ccxt.RateLimitExceeded) as e:
+                # Exponential sleep backoff: 2s, 4s, 6s, 8s, 10s
+                sleep_dur = (attempt + 1) * 2
+                time.sleep(sleep_dur)
+                if attempt == 4:
+                    raise e
+            except Exception as e:
+                time.sleep(2)
+                if attempt == 4:
+                    raise e
 
         if not candles:
             break

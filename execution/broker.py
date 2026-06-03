@@ -1,8 +1,6 @@
 import logging
 import ccxt.async_support as ccxt
 import os
-import json
-import asyncio
 from datetime import datetime, timedelta
 from config.settings import SESSION_START, SESSION_END
 

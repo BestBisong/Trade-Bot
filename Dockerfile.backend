@@ -1,0 +1,36 @@
+# Use python 3.11 slim base image
+FROM python:3.11-slim
+
+# Install system dependencies (build-essential, etc.)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set the working directory
+WORKDIR /app
+
+# Copy requirements and install python packages
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy necessary files and folders
+COPY api/ ./api/
+COPY config/ ./config/
+COPY data/ ./data/
+COPY execution/ ./execution/
+COPY risk/ ./risk/
+COPY signals/ ./signals/
+COPY strategies/ ./strategies/
+COPY tuned_params.json .
+COPY trading_model.joblib .
+COPY run_bot.py .
+
+# Expose backend API port
+EXPOSE 8000
+
+# Copy and make entrypoint.sh executable
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
+
+# Run the entrypoint script
+CMD ["./entrypoint.sh"]
