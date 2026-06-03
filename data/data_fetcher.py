@@ -4,8 +4,8 @@ import time
 from data.market_data import format_ohlcv
 from data.data_cleaner import clean
 
-# Binance for data (higher limits/better liquidity profile)
-exchange = ccxt.binance({"enableRateLimit": True})
+# Kraken for data (US-friendly, no geo-blocking for public endpoints)
+exchange = ccxt.kraken({"enableRateLimit": True})
 
 async def fetch(symbol, timeframe="5m", limit=100, retries=3):
     """Fetches and cleans market data asynchronously with retry logic."""

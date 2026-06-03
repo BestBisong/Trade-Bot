@@ -18,8 +18,8 @@ class BybitBroker:
         })
         
         if self.paper_mode:
-            logging.info("BROKER | Bybit Paper Mode Active. Using Binance for public price data feed.")
-            self.public_exchange = ccxt.binance({'enableRateLimit': True})
+            logging.info("BROKER | Bybit Paper Mode Active. Using Kraken for public price data feed.")
+            self.public_exchange = ccxt.kraken({'enableRateLimit': True})
         else:
             self.public_exchange = None
 
