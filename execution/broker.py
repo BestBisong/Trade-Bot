@@ -18,10 +18,15 @@ class BybitBroker:
         })
         
         if self.paper_mode:
-            logging.info("BROKER | Bybit Paper Mode Active.")
+            logging.info("BROKER | Bybit Paper Mode Active. Using Binance for public price data feed.")
+            self.public_exchange = ccxt.binance({'enableRateLimit': True})
+        else:
+            self.public_exchange = None
 
     async def close(self):
         await self.exchange.close()
+        if self.public_exchange:
+            await self.public_exchange.close()
 
     def is_window_active(self):
         """Checks if current time is within session window."""
@@ -47,7 +52,10 @@ class BybitBroker:
     async def price(self, symbol):
         """Fetches the latest tick price asynchronously."""
         try:
-            ticker = await self.exchange.fetch_ticker(symbol)
+            if self.public_exchange:
+                ticker = await self.public_exchange.fetch_ticker(symbol)
+            else:
+                ticker = await self.exchange.fetch_ticker(symbol)
             return ticker['last']
         except Exception as e:
             logging.error(f"BROKER | Price Fetch Error for {symbol}: {e}")
