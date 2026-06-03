@@ -159,6 +159,11 @@ async def scan_symbol(symbol, broker, ml_agent, active_trades, virtual_wallet, t
                         'accumulated_pnl': 0.0
                     })
                     logging.info(f"OPENED | {signal} {symbol} | Regime: {regime} | Score: {status}")
+                    try:
+                        from signals.telegram_notifier import notify
+                        notify(f"🔔 OPENED | {symbol} {signal}\nRegime: {regime}\nScore: {status}\nEntry: ${entry_fill:.4f}\nQty: {qty}\nSL: ${sl:.4f} | TP: ${tp:.4f}")
+                    except Exception as e:
+                        logging.error(f"TELEGRAM_ERROR | Failed to send order open notification: {e}")
             else:
                 logging.info(f"ORDER REJECTED | {symbol} {signal} | Reason: Qty 0 (Constraints failed)")
     except Exception as e:
@@ -174,6 +179,11 @@ async def run_bot():
     tuned_params = load_tuned_params()["params"]
 
     logging.info("JARVIS | Async Engine Online. Monitoring parallel streams...")
+    try:
+        from signals.telegram_notifier import notify
+        notify("🚀 JARVIS Quant Bot Online & Scanning Market Data...")
+    except Exception as e:
+        logging.error(f"TELEGRAM_ERROR | Failed to send startup notification: {e}")
 
     logging.info("JARVIS | Warming ML on historical candles...")
     for s in SYMBOLS:
@@ -231,6 +241,11 @@ async def run_bot():
                         # Execute broker position adjustment (Bybit paper-trade adjust)
                         await broker.place_order(trade['symbol'], "sell" if trade['side'] == "buy" else "buy", trade['qty'], exit_fill_half)
                         logging.info(f"SCALED OUT | {trade['symbol']} | Locked half profit: ${pnl_half:.2f} | Moved SL to Breakeven")
+                        try:
+                            from signals.telegram_notifier import notify
+                            notify(f"💵 SCALED OUT | {trade['symbol']}\nLocked half profit: ${pnl_half:.2f}\nMoved SL to Breakeven")
+                        except Exception as e:
+                            logging.error(f"TELEGRAM_ERROR | Failed to send scale out notification: {e}")
 
                 hit_tp = (trade['side'] == "buy" and current_price >= trade['tp']) or (trade['side'] == "sell" and current_price <= trade['tp'])
                 hit_sl = (trade['side'] == "buy" and current_price <= trade['sl']) or (trade['side'] == "sell" and current_price >= trade['sl'])
@@ -253,6 +268,11 @@ async def run_bot():
                     if trade.get('df') is not None:
                         ml_agent.learn_from_settlement(trade['df'], pnl=total_pnl)
                     logging.info(f"CLOSED | {trade['symbol']} | PnL: ${total_pnl:.2f} | Wallet: ${virtual_wallet:.2f}")
+                    try:
+                        from signals.telegram_notifier import notify
+                        notify(f"🏁 CLOSED | {trade['symbol']}\nReason: {reason.upper()}\nPnL: ${total_pnl:.2f}\nWallet: ${virtual_wallet:.2f}")
+                    except Exception as e:
+                        logging.error(f"TELEGRAM_ERROR | Failed to send order close notification: {e}")
                     
                     # Close remaining position at the broker
                     await broker.place_order(trade['symbol'], "sell" if trade['side'] == "buy" else "buy", trade['qty'], exit_fill)
