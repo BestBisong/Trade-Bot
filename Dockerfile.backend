@@ -21,6 +21,7 @@ COPY execution/ ./execution/
 COPY risk/ ./risk/
 COPY signals/ ./signals/
 COPY strategies/ ./strategies/
+COPY backtesting/ ./backtesting/
 COPY tuned_params.json .
 COPY trading_model.joblib .
 COPY run_bot.py .
