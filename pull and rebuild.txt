@@ -1,0 +1,4 @@
+git pull
+docker-compose up --build -d
+/home/ubuntu/Trade-Bot 
+ssh -i "trading bot.pem" ubuntu@3.93.199.216
