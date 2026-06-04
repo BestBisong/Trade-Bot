@@ -2,7 +2,7 @@
 
 # Start the live trading bot in the background
 echo "[INFO] Starting JARVIS Live Trading Bot in background..."
-python run_bot.py &
+python -u run_bot.py &
 
 # Start the FastAPI server in the foreground
 echo "[INFO] Starting JARVIS FastAPI Backend on port 8000..."
