@@ -103,6 +103,7 @@ async def scan_symbol(symbol, broker, ml_agent, active_trades, virtual_wallet, t
                 logging.warning(f"DAILY_SMA_ERROR | Could not calculate Daily 200 SMA for {symbol}: {ex}")
         
         signal, status, _ = generate(df, trend_df, ml_agent, tuned_params=tuned_params)
+        logging.info(f"SCANNER | {symbol} | Signal: {signal} | Verdict: {status}")
         
         if signal == "BUY":
             entry_price = await broker.price(symbol)
