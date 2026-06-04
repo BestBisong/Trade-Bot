@@ -103,7 +103,6 @@ async def scan_symbol(symbol, broker, ml_agent, active_trades, virtual_wallet, t
                 logging.warning(f"DAILY_SMA_ERROR | Could not calculate Daily 200 SMA for {symbol}: {ex}")
         
         signal, status, _ = generate(df, trend_df, ml_agent, tuned_params=tuned_params)
-        logging.info(f"SCANNER | {symbol} | Signal: {signal} | Verdict: {status}")
         
         if signal == "BUY":
             entry_price = await broker.price(symbol)
@@ -198,105 +197,108 @@ async def run_bot():
 
     try:
         while True:
-            now = datetime.datetime.now()
-            risk_mgmt.mark_equity(virtual_wallet)
-            risk_snapshot = risk_mgmt.summary(equity=virtual_wallet)
-            for trade in active_trades[:]:
-                current_price = await broker.price(trade['symbol'])
-                if not current_price: continue
-                trade['current_price'] = current_price
+            try:
+                now = datetime.datetime.now()
+                risk_mgmt.mark_equity(virtual_wallet)
+                risk_snapshot = risk_mgmt.summary(equity=virtual_wallet)
+                for trade in active_trades[:]:
+                    current_price = await broker.price(trade['symbol'])
+                    if not current_price: continue
+                    trade['current_price'] = current_price
 
-                # Trailing stop update if enabled!
-                if TRAILING_STOP_ENABLED:
-                    import ta
-                    trade_df = trade.get('df')
-                    if trade_df is not None:
-                        current_atr = ta.volatility.average_true_range(
-                            trade_df["high"], trade_df["low"], trade_df["close"], window=14
-                        ).iloc[-1]
-                        
-                        if trade['side'] == "buy":
-                            trail_stop = current_price - 3.0 * current_atr
-                            if trail_stop > trade['sl']:
-                                trade['sl'] = trail_stop
-                                logging.info(f"TRAILING STOP | {trade['symbol']} Stop Loss raised to ${trail_stop:.2f}")
+                    # Trailing stop update if enabled!
+                    if TRAILING_STOP_ENABLED:
+                        import ta
+                        trade_df = trade.get('df')
+                        if trade_df is not None:
+                            current_atr = ta.volatility.average_true_range(
+                                trade_df["high"], trade_df["low"], trade_df["close"], window=14
+                            ).iloc[-1]
+                            
+                            if trade['side'] == "buy":
+                                trail_stop = current_price - 3.0 * current_atr
+                                if trail_stop > trade['sl']:
+                                    trade['sl'] = trail_stop
+                                    logging.info(f"TRAILING STOP | {trade['symbol']} Stop Loss raised to ${trail_stop:.2f}")
 
-                # Check for partial profit scale-out if enabled
-                if PARTIAL_TP_ENABLED and not trade.get('has_scaled_out', False):
-                    hit_half_tp = (trade['side'] == "buy" and current_price >= trade['half_tp']) or \
-                                  (trade['side'] == "sell" and current_price <= trade['half_tp'])
-                    if hit_half_tp:
-                        exit_fill_half = apply_slippage(trade['half_tp'], trade['side'], SLIPPAGE_BPS)
-                        pnl_half = settlement_pnl(trade['entry_price'], exit_fill_half, trade['qty'] * 0.5, trade['side'], TAKER_FEE_RATE)
+                    # Check for partial profit scale-out if enabled
+                    if PARTIAL_TP_ENABLED and not trade.get('has_scaled_out', False):
+                        hit_half_tp = (trade['side'] == "buy" and current_price >= trade['half_tp']) or \
+                                      (trade['side'] == "sell" and current_price <= trade['half_tp'])
+                        if hit_half_tp:
+                            exit_fill_half = apply_slippage(trade['half_tp'], trade['side'], SLIPPAGE_BPS)
+                            pnl_half = settlement_pnl(trade['entry_price'], exit_fill_half, trade['qty'] * 0.5, trade['side'], TAKER_FEE_RATE)
+                            
+                            # Realize profit on the first half
+                            virtual_wallet += pnl_half
+                            risk_mgmt.update_stats(pnl_half)
+                            
+                            # Scale down live position size and adjust stop loss to breakeven!
+                            trade['qty'] = trade['qty'] * 0.5
+                            trade['sl'] = trade['entry_price']
+                            trade['has_scaled_out'] = True
+                            trade['accumulated_pnl'] = pnl_half
+                            
+                            # Execute broker position adjustment (Bybit paper-trade adjust)
+                            await broker.place_order(trade['symbol'], "sell" if trade['side'] == "buy" else "buy", trade['qty'], exit_fill_half)
+                            logging.info(f"SCALED OUT | {trade['symbol']} | Locked half profit: ${pnl_half:.2f} | Moved SL to Breakeven")
+                            try:
+                                from signals.telegram_notifier import notify
+                                notify(f"💵 SCALED OUT | {trade['symbol']}\nLocked half profit: ${pnl_half:.2f}\nMoved SL to Breakeven")
+                            except Exception as e:
+                                logging.error(f"TELEGRAM_ERROR | Failed to send scale out notification: {e}")
+
+                    hit_tp = (trade['side'] == "buy" and current_price >= trade['tp']) or (trade['side'] == "sell" and current_price <= trade['tp'])
+                    hit_sl = (trade['side'] == "buy" and current_price <= trade['sl']) or (trade['side'] == "sell" and current_price >= trade['sl'])
+                    
+                    if hit_tp or hit_sl or now >= trade['expiry']:
+                        exit_fill = apply_slippage(current_price, trade['side'], SLIPPAGE_BPS)
+                        pnl_second = settlement_pnl(trade['entry_price'], exit_fill, trade['qty'], trade['side'], TAKER_FEE_RATE)
                         
-                        # Realize profit on the first half
-                        virtual_wallet += pnl_half
-                        risk_mgmt.update_stats(pnl_half)
+                        total_pnl = pnl_second + trade.get('accumulated_pnl', 0.0)
+                        virtual_wallet += pnl_second
+                        risk_mgmt.update_stats(pnl_second)
                         
-                        # Scale down live position size and adjust stop loss to breakeven!
-                        trade['qty'] = trade['qty'] * 0.5
-                        trade['sl'] = trade['entry_price']
-                        trade['has_scaled_out'] = True
-                        trade['accumulated_pnl'] = pnl_half
-                        
-                        # Execute broker position adjustment (Bybit paper-trade adjust)
-                        await broker.place_order(trade['symbol'], "sell" if trade['side'] == "buy" else "buy", trade['qty'], exit_fill_half)
-                        logging.info(f"SCALED OUT | {trade['symbol']} | Locked half profit: ${pnl_half:.2f} | Moved SL to Breakeven")
+                        reason = "tp" if hit_tp else ("sl" if hit_sl else "expiry")
+                        _append_trade_history({
+                            "symbol": trade['symbol'], 
+                            "pnl": total_pnl, 
+                            "reason": reason + ("_half" if trade.get('has_scaled_out') and reason == "sl" else ""), 
+                            "closed_at": now.isoformat()
+                        })
+                        if trade.get('df') is not None:
+                            ml_agent.learn_from_settlement(trade['df'], pnl=total_pnl)
+                        logging.info(f"CLOSED | {trade['symbol']} | PnL: ${total_pnl:.2f} | Wallet: ${virtual_wallet:.2f}")
                         try:
                             from signals.telegram_notifier import notify
-                            notify(f"💵 SCALED OUT | {trade['symbol']}\nLocked half profit: ${pnl_half:.2f}\nMoved SL to Breakeven")
+                            notify(f"🏁 CLOSED | {trade['symbol']}\nReason: {reason.upper()}\nPnL: ${total_pnl:.2f}\nWallet: ${virtual_wallet:.2f}")
                         except Exception as e:
-                            logging.error(f"TELEGRAM_ERROR | Failed to send scale out notification: {e}")
+                            logging.error(f"TELEGRAM_ERROR | Failed to send order close notification: {e}")
+                        
+                        # Close remaining position at the broker
+                        await broker.place_order(trade['symbol'], "sell" if trade['side'] == "buy" else "buy", trade['qty'], exit_fill)
+                        active_trades.remove(trade)
 
-                hit_tp = (trade['side'] == "buy" and current_price >= trade['tp']) or (trade['side'] == "sell" and current_price <= trade['tp'])
-                hit_sl = (trade['side'] == "buy" and current_price <= trade['sl']) or (trade['side'] == "sell" and current_price >= trade['sl'])
-                
-                if hit_tp or hit_sl or now >= trade['expiry']:
-                    exit_fill = apply_slippage(current_price, trade['side'], SLIPPAGE_BPS)
-                    pnl_second = settlement_pnl(trade['entry_price'], exit_fill, trade['qty'], trade['side'], TAKER_FEE_RATE)
-                    
-                    total_pnl = pnl_second + trade.get('accumulated_pnl', 0.0)
-                    virtual_wallet += pnl_second
-                    risk_mgmt.update_stats(pnl_second)
-                    
-                    reason = "tp" if hit_tp else ("sl" if hit_sl else "expiry")
-                    _append_trade_history({
-                        "symbol": trade['symbol'], 
-                        "pnl": total_pnl, 
-                        "reason": reason + ("_half" if trade.get('has_scaled_out') and reason == "sl" else ""), 
-                        "closed_at": now.isoformat()
-                    })
-                    if trade.get('df') is not None:
-                        ml_agent.learn_from_settlement(trade['df'], pnl=total_pnl)
-                    logging.info(f"CLOSED | {trade['symbol']} | PnL: ${total_pnl:.2f} | Wallet: ${virtual_wallet:.2f}")
-                    try:
-                        from signals.telegram_notifier import notify
-                        notify(f"🏁 CLOSED | {trade['symbol']}\nReason: {reason.upper()}\nPnL: ${total_pnl:.2f}\nWallet: ${virtual_wallet:.2f}")
-                    except Exception as e:
-                        logging.error(f"TELEGRAM_ERROR | Failed to send order close notification: {e}")
-                    
-                    # Close remaining position at the broker
-                    await broker.place_order(trade['symbol'], "sell" if trade['side'] == "buy" else "buy", trade['qty'], exit_fill)
-                    active_trades.remove(trade)
+                can_trade = (
+                    broker.can_open_new_trades()
+                    and risk_mgmt.allowed(virtual_wallet)
+                    and risk_mgmt.can_open_new_trade(len(active_trades), equity=virtual_wallet)
+                )
+                if can_trade:
+                    for s in SYMBOLS:
+                        await scan_symbol(s, broker, ml_agent, active_trades, virtual_wallet, tuned_params, now)
+                        price_val = await broker.price(s)
+                        update_shared_data(
+                            active_trades, virtual_wallet, risk_snapshot,
+                            scan_heartbeat={s: datetime.datetime.now().strftime("%H:%M:%S")},
+                            system_snapshot={"prices": {s: price_val}} if price_val else None
+                        )
+                        await asyncio.sleep(1.5)
 
-            can_trade = (
-                broker.can_open_new_trades()
-                and risk_mgmt.allowed(virtual_wallet)
-                and risk_mgmt.can_open_new_trade(len(active_trades), equity=virtual_wallet)
-            )
-            if can_trade:
-                for s in SYMBOLS:
-                    await scan_symbol(s, broker, ml_agent, active_trades, virtual_wallet, tuned_params, now)
-                    price_val = await broker.price(s)
-                    update_shared_data(
-                        active_trades, virtual_wallet, risk_snapshot,
-                        scan_heartbeat={s: datetime.datetime.now().strftime("%H:%M:%S")},
-                        system_snapshot={"prices": {s: price_val}} if price_val else None
-                    )
-                    await asyncio.sleep(1.5)
-
-            update_shared_data(active_trades, virtual_wallet, risk_snapshot)
-            logging.info(f"JARVIS | Scan cycle complete. Active positions: {len(active_trades)} | Wallet: ${virtual_wallet:.2f}")
+                update_shared_data(active_trades, virtual_wallet, risk_snapshot)
+                logging.info(f"JARVIS | Scan cycle complete. Active positions: {len(active_trades)} | Wallet: ${virtual_wallet:.2f}")
+            except Exception as e:
+                logging.error(f"SYSTEM_GLITCH | Exception occurred in loop cycle: {e}", exc_info=True)
             await asyncio.sleep(10)
     finally:
         await broker.close()
