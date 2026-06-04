@@ -105,14 +105,17 @@ async def scan_symbol(symbol, broker, ml_agent, active_trades, virtual_wallet, t
         signal, status, _ = generate(df, trend_df, ml_agent, tuned_params=tuned_params)
         logging.info(f"SCANNER | {symbol} | Signal: {signal} | Verdict: {status}")
         
-        if signal == "BUY":
+        if signal in ("BUY", "SELL"):
             entry_price = await broker.price(symbol)
             if entry_price is None: return
 
             # 3. Macro Market Regime Guard (Daily 200 SMA)
             if DAILY_200SMA_GUARD and daily_sma is not None:
-                if entry_price < daily_sma:
+                if signal == "BUY" and entry_price < daily_sma:
                     logging.info(f"REGIME_GUARD | {symbol} BUY signal blocked: entry price ${entry_price:.2f} is under Daily 200 SMA (${daily_sma:.2f})")
+                    return
+                elif signal == "SELL" and entry_price > daily_sma:
+                    logging.info(f"REGIME_GUARD | {symbol} SELL signal blocked: entry price ${entry_price:.2f} is above Daily 200 SMA (${daily_sma:.2f})")
                     return
 
             regime = detect_market_regime(df, trend_df)
@@ -125,13 +128,24 @@ async def scan_symbol(symbol, broker, ml_agent, active_trades, virtual_wallet, t
             # Dynamic Risk Sizing based on ML confidence (Option 1)
             if DYNAMIC_ML_RISK:
                 ml_prob = ml_agent.confidence(df)
-                ml_threshold_long = float(tuned_params.get("ml_conf_long_" + regime, 0.60))
-                if ml_prob >= ml_threshold_long + 0.05:
-                    dyn_risk = 0.065
-                elif ml_prob >= ml_threshold_long:
-                    dyn_risk = 0.050
+                if signal == "BUY":
+                    ml_threshold_long = float(tuned_params.get("ml_conf_long_" + regime, 0.60))
+                    if ml_prob >= ml_threshold_long + 0.05:
+                        dyn_risk = 0.065
+                    elif ml_prob >= ml_threshold_long:
+                        dyn_risk = 0.050
+                    else:
+                        dyn_risk = 0.030
                 else:
-                    dyn_risk = 0.030
+                    ml_threshold_short = float(tuned_params.get("ml_conf_short_" + regime, 0.40))
+                    short_conf = 1.0 - ml_prob
+                    short_threshold = 1.0 - ml_threshold_short
+                    if short_conf >= short_threshold + 0.05:
+                        dyn_risk = 0.065
+                    elif short_conf >= short_threshold:
+                        dyn_risk = 0.050
+                    else:
+                        dyn_risk = 0.030
             else:
                 dyn_risk = RISK_PER_TRADE
 
