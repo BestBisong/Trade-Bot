@@ -37,7 +37,7 @@ logging.basicConfig(
 )
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-from config.settings import SYMBOLS, TIMEFRAME, TREND_TIMEFRAME, PARTIAL_TP_ENABLED, DYNAMIC_ML_RISK, DAILY_200SMA_GUARD, TRAILING_STOP_ENABLED
+from config.settings import SYMBOLS, TIMEFRAME, TREND_TIMEFRAME, PARTIAL_TP_ENABLED, DYNAMIC_ML_RISK, DAILY_200SMA_GUARD, TRAILING_STOP_ENABLED, ALLOW_SHORTS
 
 INITIAL_CAPITAL  = 100.0
 RISK_PER_TRADE   = 0.035
@@ -403,6 +403,8 @@ def run_backtest_symbol(symbol: str, df_5m, df_1h, df_1d, ml_agent, tuned_params
         else:
             continue
 
+        if signal == "SELL" and not ALLOW_SHORTS:
+            continue
         if signal == "BUY" and not market_bullish:
             continue
         if signal == "SELL" and market_bullish:
