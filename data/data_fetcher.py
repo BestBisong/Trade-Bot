@@ -17,6 +17,8 @@ async def fetch(symbol, timeframe="5m", limit=100, retries=3):
         except ccxt.RateLimitExceeded:
             await asyncio.sleep(5)
         except Exception as e:
+            import logging
+            logging.error(f"FETCH_ERROR | Failed to fetch {symbol} ({timeframe}) on attempt {attempt + 1}: {e}")
             await asyncio.sleep(2)
             
     return None
