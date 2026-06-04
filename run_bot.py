@@ -2,7 +2,7 @@ import time, logging, datetime, json, os, asyncio
 from execution.broker import BybitBroker
 from data.data_fetcher import fetch, fetch_confluence, close_exchange
 from signals.signal_generator import generate
-from config.settings import SYMBOLS, TIMEFRAME, TREND_TIMEFRAME, PARTIAL_TP_ENABLED, DYNAMIC_ML_RISK, DAILY_200SMA_GUARD, TRAILING_STOP_ENABLED
+from config.settings import SYMBOLS, TIMEFRAME, TREND_TIMEFRAME, PARTIAL_TP_ENABLED, DYNAMIC_ML_RISK, DAILY_200SMA_GUARD, TRAILING_STOP_ENABLED, ALLOW_SHORTS
 from strategies.ml_strategy import MLStrategy
 from strategies.regime import detect_market_regime, get_regime_params
 from strategies.execution_levels import stop_distance
@@ -105,7 +105,7 @@ async def scan_symbol(symbol, broker, ml_agent, active_trades, virtual_wallet, t
         signal, status, _ = generate(df, trend_df, ml_agent, tuned_params=tuned_params)
         logging.info(f"SCANNER | {symbol} | Signal: {signal} | Verdict: {status}")
         
-        if signal in ("BUY", "SELL"):
+        if (signal == "BUY") or (signal == "SELL" and ALLOW_SHORTS):
             entry_price = await broker.price(symbol)
             if entry_price is None: return
 

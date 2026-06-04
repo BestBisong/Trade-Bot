@@ -403,16 +403,18 @@ def run_backtest_symbol(symbol: str, df_5m, df_1h, df_1d, ml_agent, tuned_params
         else:
             continue
 
-        if signal == "SELL":
-            continue
         if signal == "BUY" and not market_bullish:
+            continue
+        if signal == "SELL" and market_bullish:
             continue
 
         # 3. Macro Market Regime Guard (Daily 200 SMA)
-        if DAILY_200SMA_GUARD and signal == "BUY":
+        if DAILY_200SMA_GUARD:
             idx_1d = daily_indices[i]
             daily_sma = float(sma200_1d.iloc[idx_1d])
-            if current_price < daily_sma:
+            if signal == "BUY" and current_price < daily_sma:
+                continue
+            elif signal == "SELL" and current_price > daily_sma:
                 continue
 
         if i - last_closed_bar < 24:
@@ -425,13 +427,24 @@ def run_backtest_symbol(symbol: str, df_5m, df_1h, df_1d, ml_agent, tuned_params
         # Dynamic Risk Sizing based on ML confidence (Option 1)
         # Base risk is 3.0%, scaling up to 6.5% for high-probability setups
         if DYNAMIC_ML_RISK:
-            ml_threshold_long = float(tuned_params.get("ml_conf_long_" + regime, 0.60))
-            if ml_prob >= ml_threshold_long + 0.05:
-                dyn_risk = 0.065
-            elif ml_prob >= ml_threshold_long:
-                dyn_risk = 0.050
+            if signal == "BUY":
+                ml_threshold_long = float(tuned_params.get("ml_conf_long_" + regime, 0.60))
+                if ml_prob >= ml_threshold_long + 0.05:
+                    dyn_risk = 0.065
+                elif ml_prob >= ml_threshold_long:
+                    dyn_risk = 0.050
+                else:
+                    dyn_risk = 0.030
             else:
-                dyn_risk = 0.030
+                ml_threshold_short = float(tuned_params.get("ml_conf_short_" + regime, 0.40))
+                short_conf = 1.0 - ml_prob
+                short_threshold = 1.0 - ml_threshold_short
+                if short_conf >= short_threshold + 0.05:
+                    dyn_risk = 0.065
+                elif short_conf >= short_threshold:
+                    dyn_risk = 0.050
+                else:
+                    dyn_risk = 0.030
         else:
             dyn_risk = RISK_PER_TRADE
 
