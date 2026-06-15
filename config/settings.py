@@ -1,6 +1,7 @@
 SYMBOLS = ["BTC/USDT", "ETH/USDT"]
-TIMEFRAME = "1h"
+TIMEFRAME = "15m"
 TREND_TIMEFRAME = "4h"
+
 
 SESSION_START = "00:00"
 SESSION_END = "23:59"
@@ -13,9 +14,12 @@ PARTIAL_TP_ENABLED = False
 DYNAMIC_ML_RISK = False
 
 # Set to True to restrict long entries only when price is above Daily 200 SMA (Bear Market Protection)
+
 DAILY_200SMA_GUARD = True
 
 # Set to True to replace static Take Profits with a dynamic Trailing ATR Stop (3x ATR trailing)
 TRAILING_STOP_ENABLED = False
 # Set to True to allow the bot to execute short (SELL) positions; set to False for long-only (BUY) trading
-ALLOW_SHORTS = False
+ALLOW_SHORTS = True
+
+

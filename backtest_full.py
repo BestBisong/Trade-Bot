@@ -217,9 +217,15 @@ def run_backtest_symbol(symbol: str, df_5m, df_1h, df_1d, ml_agent, tuned_params
             # Trailing stop update if enabled!
             if TRAILING_STOP_ENABLED:
                 current_atr = atr.iloc[i]
-                trail_stop = current_price - 3.0 * current_atr
-                if trail_stop > open_trade["sl"]:
-                    open_trade["sl"] = trail_stop
+                if open_trade["side"] == "buy":
+                    trail_stop = current_price - 3.0 * current_atr
+                    if trail_stop > open_trade["sl"]:
+                        open_trade["sl"] = trail_stop
+                else:
+                    trail_stop = current_price + 3.0 * current_atr
+                    if trail_stop < open_trade["sl"]:
+                        open_trade["sl"] = trail_stop
+
 
             # Check for partial profit scale-out if not done yet
             if PARTIAL_TP_ENABLED and not open_trade.get("has_scaled_out", False):
@@ -449,6 +455,11 @@ def run_backtest_symbol(symbol: str, df_5m, df_1h, df_1d, ml_agent, tuned_params
                     dyn_risk = 0.030
         else:
             dyn_risk = RISK_PER_TRADE
+
+        # Scale down risk sizing for shorts to protect capital in choppy/volatile bad markets
+        if signal == "SELL":
+            dyn_risk = dyn_risk * 0.4
+
 
         entry_fill = apply_slippage(current_price, signal.lower(), SLIPPAGE_BPS)
         sl = entry_fill - sl_dist if signal == "BUY" else entry_fill + sl_dist

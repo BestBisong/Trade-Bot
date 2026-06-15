@@ -149,6 +149,10 @@ async def scan_symbol(symbol, broker, ml_agent, active_trades, virtual_wallet, t
             else:
                 dyn_risk = RISK_PER_TRADE
 
+            # Scale down risk sizing for shorts to protect capital in choppy/volatile bad markets
+            if signal == "SELL":
+                dyn_risk = dyn_risk * 0.4
+
             rules = EXCHANGE_RULES.get(symbol, {"min_qty": 0.00001, "qty_precision": 5, "min_notional": 5.0})
             qty = calculate_order_quantity(
                 virtual_wallet, entry_price, sl_dist,
@@ -235,6 +239,12 @@ async def run_bot():
                                 if trail_stop > trade['sl']:
                                     trade['sl'] = trail_stop
                                     logging.info(f"TRAILING STOP | {trade['symbol']} Stop Loss raised to ${trail_stop:.2f}")
+                            elif trade['side'] == "sell":
+                                trail_stop = current_price + 3.0 * current_atr
+                                if trail_stop < trade['sl']:
+                                    trade['sl'] = trail_stop
+                                    logging.info(f"TRAILING STOP | {trade['symbol']} Stop Loss lowered to ${trail_stop:.2f}")
+
 
                     # Check for partial profit scale-out if enabled
                     if PARTIAL_TP_ENABLED and not trade.get('has_scaled_out', False):
