@@ -1,9 +1,9 @@
 SYMBOLS = ["BTC/USDT", "ETH/USDT"]
-TIMEFRAME = "15m"
+TIMEFRAME = "1h"
 TREND_TIMEFRAME = "4h"
 
-
 SESSION_START = "00:00"
+
 SESSION_END = "23:59"
 
 # ── Elite Execution Toggles ──────────────────────────────────────────────────
