@@ -287,7 +287,7 @@ def run_backtest_symbol(symbol: str, df_5m, df_1h, df_1d, ml_agent, tuned_params
         market_bullish = t_fast > t_slow
 
         regime = regimes[i]
-        params = get_regime_params(regime)
+        params = get_regime_params(regime, symbol)
 
         # Breakout session highs/lows
         if regime == "trending":
@@ -409,7 +409,7 @@ def run_backtest_symbol(symbol: str, df_5m, df_1h, df_1d, ml_agent, tuned_params
         else:
             continue
 
-        if signal == "SELL" and (not ALLOW_SHORTS or symbol != "BTC/USDT"):
+        if signal == "SELL" and not ALLOW_SHORTS:
             continue
 
         # Strict trend filter applied to all regimes
@@ -428,6 +428,7 @@ def run_backtest_symbol(symbol: str, df_5m, df_1h, df_1d, ml_agent, tuned_params
                 continue
 
         if i - last_closed_bar < 24:
+            # Cooldown is 24 bars (24 hours) to prevent revenge trading/over-trading
             continue
 
         sl_dist = atr.iloc[i] * float(params["sl_atr_mult"]) * float(tuned_params.get("stop_atr_scale", 1.0))

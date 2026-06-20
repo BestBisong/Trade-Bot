@@ -32,21 +32,22 @@ def detect_market_regime(df, trend_df):
         return "ranging"
 
 
-def get_regime_params(regime):
+def get_regime_params(regime, symbol="BTC/USDT"):
+    is_alt = symbol != "BTC/USDT"
     if regime == "trending":
         return {
             "breakout_lookback": 12,
             "volume_multiplier": 1.1,
             "score_threshold": 2.5,
-            "sl_atr_mult": 2.0,
-            "rr_ratio": 2.5,
+            "sl_atr_mult": 3.0 if is_alt else 2.0,
+            "rr_ratio": 2.0 if is_alt else 2.5,
         }
     elif regime == "volatile":
         return {
             "breakout_lookback": 20,
             "volume_multiplier": 1.5,
             "score_threshold": 99.0,
-            "sl_atr_mult": 3.0,
+            "sl_atr_mult": 4.0 if is_alt else 3.0,
             "rr_ratio": 1.5,
         }
     else:
@@ -54,7 +55,7 @@ def get_regime_params(regime):
             "breakout_lookback": 8,
             "volume_multiplier": 0.9,
             "score_threshold": 3.5,
-            "sl_atr_mult": 2.0,
+            "sl_atr_mult": 3.0 if is_alt else 2.0,
             "rr_ratio": 1.5,
         }
 

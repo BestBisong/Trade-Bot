@@ -72,7 +72,7 @@ def get_state():
         "allow_shorts": True,
         "risk_per_trade": 0.035,
         "max_notional_per_trade": 3.0,
-        "symbols": ["BTC/USDT", "ETH/USDT"],
+        "symbols": ["BTC/USDT", "SOL/USDT", "XRP/USDT"],
         "trend_guard_enabled": True
     })
     diagnostics = safe_read("scan_diagnostics.json", {})
@@ -89,12 +89,16 @@ def get_state():
 @app.get("/api/trades")
 def get_trades():
     trades = safe_read("active_trades.json", [])
-    return [t for t in trades if t.get("symbol") in ["BTC/USDT", "ETH/USDT"]]
+    settings = safe_read("settings_config.json", {"symbols": ["BTC/USDT", "SOL/USDT", "XRP/USDT"]})
+    active_symbols = settings.get("symbols", ["BTC/USDT", "SOL/USDT", "XRP/USDT"])
+    return [t for t in trades if t.get("symbol") in active_symbols]
 
 @app.get("/api/history")
 def get_history():
     history = safe_read("trade_history.json", [])
-    return [h for h in history if h.get("symbol") in ["BTC/USDT", "ETH/USDT"]]
+    settings = safe_read("settings_config.json", {"symbols": ["BTC/USDT", "SOL/USDT", "XRP/USDT"]})
+    active_symbols = settings.get("symbols", ["BTC/USDT", "SOL/USDT", "XRP/USDT"])
+    return [h for h in history if h.get("symbol") in active_symbols]
 
 @app.get("/api/settings")
 def get_settings():
@@ -107,7 +111,7 @@ def get_settings():
         "allow_shorts": True,
         "risk_per_trade": 0.035,
         "max_notional_per_trade": 3.0,
-        "symbols": ["BTC/USDT", "ETH/USDT"],
+        "symbols": ["BTC/USDT", "SOL/USDT", "XRP/USDT"],
         "trend_guard_enabled": True
     })
 
@@ -190,10 +194,6 @@ def get_logs():
             if not line:
                 continue
             
-            # Strict symbol filter to keep dashboard pure
-            if any(pruned in line for pruned in ["SOL", "XRP"]):
-                continue
-                
             # Split standard format: HH:MM:SS - MESSAGE
             if " - " in line:
                 t_part, msg_part = line.split(" - ", 1)

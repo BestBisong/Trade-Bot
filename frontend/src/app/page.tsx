@@ -19,7 +19,8 @@ const generateData = (start: number, volatility: number) => {
 
 const COIN_CONFIGS: Record<string, { price: number, vol: number, minQty: number, precision: number, minNotional: number }> = {
   'BTC/USDT': { price: 92400, vol: 200, minQty: 0.00001, precision: 5, minNotional: 5.0 },
-  'ETH/USDT': { price: 3120, vol: 15, minQty: 0.0001, precision: 4, minNotional: 5.0 },
+  'SOL/USDT': { price: 180, vol: 2.5, minQty: 0.01, precision: 2, minNotional: 5.0 },
+  'XRP/USDT': { price: 2.45, vol: 0.05, minQty: 1.0, precision: 1, minNotional: 5.0 },
 };
 
 interface BotSettings {
@@ -67,7 +68,7 @@ export default function Dashboard() {
       allow_shorts: true,
       risk_per_trade: 0.035,
       max_notional_per_trade: 3.0,
-      symbols: ["BTC/USDT", "ETH/USDT"],
+      symbols: ["BTC/USDT", "SOL/USDT", "XRP/USDT"],
       trend_guard_enabled: true
     } as BotSettings,
     diagnostics: {} as Record<string, any>
@@ -91,7 +92,7 @@ export default function Dashboard() {
       allow_shorts: true,
       risk_per_trade: 0.035,
       max_notional_per_trade: 3.0,
-      symbols: ["BTC/USDT", "ETH/USDT"],
+      symbols: ["BTC/USDT", "SOL/USDT", "XRP/USDT"],
       trend_guard_enabled: true
     } as BotSettings,
     activeTrades: [] as any[],
@@ -101,7 +102,8 @@ export default function Dashboard() {
     ] as any[],
     prices: {
       'BTC/USDT': 92400,
-      'ETH/USDT': 3120
+      'SOL/USDT': 180,
+      'XRP/USDT': 2.45
     } as Record<string, number>,
     diagnostics: {
       'BTC/USDT': {
@@ -116,13 +118,25 @@ export default function Dashboard() {
         market_bullish: false,
         blocked_by: "4H_BEAR_TREND_GUARD"
       },
-      'ETH/USDT': {
+      'SOL/USDT': {
         regime: 'ranging',
         score: 2.0,
         threshold: 2.5,
-        ml_prob: 0.49,
+        ml_prob: 0.55,
         rsi: 38.5,
         rsi_sig: "BUY",
+        sma_sig: "HOLD",
+        bb_sig: "BUY",
+        market_bullish: false,
+        blocked_by: "4H_BEAR_TREND_GUARD"
+      },
+      'XRP/USDT': {
+        regime: 'ranging',
+        score: 1.0,
+        threshold: 2.5,
+        ml_prob: 0.50,
+        rsi: 45.2,
+        rsi_sig: "HOLD",
         sma_sig: "HOLD",
         bb_sig: "BUY",
         market_bullish: false,
@@ -134,7 +148,8 @@ export default function Dashboard() {
   // Sparkline state caches to keep line drawing stable
   const [sparklines] = useState(() => ({
     'BTC/USDT': generateData(92400, 200),
-    'ETH/USDT': generateData(3120, 15)
+    'SOL/USDT': generateData(180, 2.5),
+    'XRP/USDT': generateData(2.45, 0.05)
   }));
 
   // Fetch API endpoint helper
@@ -193,7 +208,8 @@ export default function Dashboard() {
       setSandboxState(prev => {
         const newPrices = {
           'BTC/USDT': prev.prices['BTC/USDT'] + (Math.random() - 0.5) * 120,
-          'ETH/USDT': prev.prices['ETH/USDT'] + (Math.random() - 0.5) * 10
+          'SOL/USDT': prev.prices['SOL/USDT'] + (Math.random() - 0.5) * 1.5,
+          'XRP/USDT': prev.prices['XRP/USDT'] + (Math.random() - 0.5) * 0.02
         };
 
         const currentSettings = prev.settings;
@@ -401,6 +417,66 @@ export default function Dashboard() {
   const activeTradesList = backendOnline ? activeTrades : sandboxState.activeTrades;
   const activeHistoryList = backendOnline ? history : sandboxState.history;
   const activeLogsList = backendOnline ? logs : sandboxState.logs;
+
+  // Helper to determine if a symbol went a day without trading, and explain why
+  const checkNoTradeDiagnostics = () => {
+    const activeSymbols = activeSettings.symbols || ["BTC/USDT", "SOL/USDT", "XRP/USDT"];
+    const now = new Date();
+    const twentyFourHoursAgo = now.getTime() - 24 * 60 * 60 * 1000;
+    
+    return activeSymbols.map(symbol => {
+      // Find the last completed trade for this symbol in history
+      const tradesForSymbol = activeHistoryList.filter(h => h.symbol === symbol);
+      
+      let lastTradeTime: Date | null = null;
+      if (tradesForSymbol.length > 0 && tradesForSymbol[0].closed_at) {
+        lastTradeTime = new Date(tradesForSymbol[0].closed_at);
+      }
+      
+      const noTradeFor24h = !lastTradeTime || lastTradeTime.getTime() < twentyFourHoursAgo;
+      
+      let statusMessage = "";
+      let hoursSince = 0;
+      
+      if (lastTradeTime) {
+        hoursSince = Math.round((now.getTime() - lastTradeTime.getTime()) / (1000 * 60 * 60));
+        statusMessage = `Last trade was ${hoursSince} hours ago.`;
+      } else {
+        statusMessage = "No trade recorded in the current session history.";
+      }
+      
+      let reason = "Scanning indicators for confluence...";
+      const diag = activeDiagnostics?.[symbol];
+      if (diag) {
+        const { blocked_by } = diag;
+        if (blocked_by) {
+          if (blocked_by === "DAILY_200SMA_GUARD") {
+            reason = "Blocked by Daily 200 SMA Guard: Price trend is opposite of authorized trading bias.";
+          } else if (blocked_by === "4H_BEAR_TREND_GUARD" || blocked_by === "4H_BULL_TREND_GUARD") {
+            reason = "Blocked by 4H Trend Guard: Entry filtered out to align only with macro 4H momentum.";
+          } else if (blocked_by === "INSUFFICIENT_SCORE") {
+            reason = `Insufficient signal score (${diag.score}/${diag.threshold}): Market is currently too choppy or indicators have not reached a high-probability alignment.`;
+          } else if (blocked_by === "SHORTS_DISABLED") {
+            reason = "Shorting is disabled in settings. The bot had a sell signal, but was restricted.";
+          } else if (blocked_by === "POSITION_ALREADY_OPEN") {
+            reason = "An active trade is already open for this asset, preventing new entries.";
+          } else if (blocked_by === "SHORTS_RESTRICTED_TO_BTC") {
+            reason = "Short positions are restricted to BTC/USDT to protect capital from high altcoin volatility.";
+          } else {
+            reason = `Blocked by filter: ${blocked_by.replace(/_/g, " ")}.`;
+          }
+        }
+      }
+      
+      return {
+        symbol,
+        noTradeFor24h,
+        statusMessage,
+        reason,
+        hoursSince
+      };
+    });
+  };
 
   // Handler to Save Settings
   const saveSettings = async (updatedSettings: BotSettings) => {
@@ -813,6 +889,42 @@ export default function Dashboard() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+
+            {/* NO-TRADE 24H+ DIAGNOSTICS CARD */}
+            <div className="bg-[#0b0b0e] border border-zinc-900 rounded-xl p-5 space-y-4 shadow-xl">
+              <div className="flex items-center justify-between pb-2 border-b border-zinc-900">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle size={14} className="text-amber-500" />
+                  <span className="font-bold tracking-widest text-zinc-200 uppercase">24H+ Inactivity Diagnostics</span>
+                </div>
+                <span className="text-[9px] text-amber-500 font-bold">MONITORING SYSTEM LATENCY & INACTIVITY</span>
+              </div>
+              
+              <div className="space-y-3">
+                {checkNoTradeDiagnostics().map(({ symbol, noTradeFor24h, statusMessage, reason }) => (
+                  <div key={symbol} className={`p-3 rounded-lg border flex flex-col gap-1.5 transition-colors ${
+                    noTradeFor24h 
+                      ? "bg-amber-950/10 border-amber-900/30 text-amber-200/90" 
+                      : "bg-[#0e0e13] border-zinc-900 text-zinc-400"
+                  }`}>
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-zinc-200">{symbol}</span>
+                      <span className={`text-[9px] font-semibold px-1.5 py-0.2 rounded uppercase ${
+                        noTradeFor24h ? "bg-amber-950/40 text-amber-400 border border-amber-900/30 animate-pulse" : "bg-zinc-900 text-zinc-500"
+                      }`}>
+                        {noTradeFor24h ? "⚠️ 24H+ INACTIVE" : "ACTIVE / RECENT"}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-zinc-400 flex items-center gap-1.5">
+                      <span>{statusMessage}</span>
+                    </div>
+                    <div className="text-[10px] leading-relaxed pl-2 border-l border-zinc-800 text-zinc-500">
+                      <strong className="text-zinc-400">Diagnosis:</strong> {reason}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 

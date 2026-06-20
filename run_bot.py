@@ -237,9 +237,9 @@ async def scan_symbol(symbol, broker, ml_agent, active_trades, virtual_wallet, t
             return
             
         allow_shorts = settings.get("allow_shorts", True)
-        if signal == "SELL" and (not allow_shorts or symbol != "BTC/USDT"):
+        if signal == "SELL" and not allow_shorts:
             if details:
-                details["blocked_by"] = "SHORTS_DISABLED" if not allow_shorts else "SHORTS_RESTRICTED_TO_BTC"
+                details["blocked_by"] = "SHORTS_DISABLED"
                 update_diagnostics(symbol, details)
             return
 
@@ -264,7 +264,7 @@ async def scan_symbol(symbol, broker, ml_agent, active_trades, virtual_wallet, t
         if entry_price is None: return
 
         sl_dist = stop_distance(df, regime, tuned_params)
-        params = get_regime_params(regime)
+        params = get_regime_params(regime, symbol)
         
         sl = entry_price - sl_dist if signal == "BUY" else entry_price + sl_dist
         tp = entry_price + (sl_dist * float(params["rr_ratio"])) if signal == "BUY" else entry_price - (sl_dist * float(params["rr_ratio"]))
