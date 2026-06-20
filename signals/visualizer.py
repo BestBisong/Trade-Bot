@@ -1,11 +1,18 @@
-import mplfinance as mpf
 import pandas as pd
 import os
+
+try:
+    import mplfinance as mpf
+    has_mpl = True
+except ImportError:
+    has_mpl = False
 
 def visualize_trade(df, symbol, signal, price, strategy_name):
     """
     Generates a chart showing the trade entry and target levels.
     """
+    if not has_mpl:
+        return ""
     plot_df = df.tail(30).copy()
     plot_df.index = pd.to_datetime(plot_df.index)
     

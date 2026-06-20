@@ -6,8 +6,5 @@ fastapi
 uvicorn
 python-dotenv
 python-telegram-bot
-mplfinance
-yfinance
 scikit-learn
 joblib
-pytest
