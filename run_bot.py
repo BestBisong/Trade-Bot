@@ -357,6 +357,12 @@ async def run_bot():
     virtual_wallet = float(_safe_read_json("bot_state.json", {}).get("wallet", INITIAL_WALLET))
     # Load previously active trades if they exist to persist state across restarts
     active_trades = _safe_read_json("active_trades.json", [])
+    for t in active_trades:
+        if 'expiry' in t and isinstance(t['expiry'], str):
+            try:
+                t['expiry'] = datetime.datetime.fromisoformat(t['expiry'])
+            except Exception:
+                t['expiry'] = datetime.datetime.now() + datetime.timedelta(days=7)
     tuned_params = load_tuned_params()["params"]
 
     logging.info("JARVIS | Async Engine Online. Monitoring parallel streams...")
