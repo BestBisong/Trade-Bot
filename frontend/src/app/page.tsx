@@ -655,40 +655,40 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#060608] text-zinc-300 font-mono p-4 selection:bg-zinc-800 text-xs">
-      <div className="max-w-[1850px] mx-auto space-y-4">
+    <div className="min-h-screen bg-[#030303] text-zinc-400 font-sans p-6 selection:bg-zinc-800 text-sm antialiased">
+      <div className="max-w-[1850px] mx-auto space-y-6">
         
         {/* HUD HEADER */}
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-zinc-900 bg-[#0c0c10]/40 p-4 rounded-xl backdrop-blur-md">
-          <div className="flex items-center gap-3">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-zinc-900 bg-[#09090b]/20 p-5 rounded-2xl border border-zinc-900/60">
+          <div className="flex items-center gap-4">
             <div className="relative flex items-center justify-center">
-              <span className={`absolute inline-flex h-2.5 w-2.5 rounded-full opacity-75 animate-ping ${backendOnline ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
-              <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${backendOnline ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+              <span className={`absolute inline-flex h-3 w-3 rounded-full opacity-75 animate-ping ${backendOnline ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+              <span className={`relative inline-flex rounded-full h-3 w-3 ${backendOnline ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-sm font-bold tracking-widest text-zinc-100 uppercase">J.A.R.V.I.S // QUANT WORKSTATION</h1>
-                <span className="text-[9px] text-zinc-300 border border-zinc-800 px-1 py-0.2 rounded bg-zinc-900/50 uppercase">v2.1 Adaptive</span>
+              <div className="flex items-center gap-3">
+                <h1 className="text-xl font-bold tracking-tight text-white">JARVIS</h1>
+                <span className="text-[10px] text-zinc-400 border border-zinc-800 px-2 py-0.5 rounded-full bg-zinc-900/60 font-semibold font-mono">v2.1</span>
               </div>
-              <p className="text-[10px] text-zinc-500 mt-0.5">Automated Multi-Regime Trading Engine & Guard Diagnostics</p>
+              <p className="text-xs text-zinc-500 mt-1">Multi-Regime Quant Workstation & Guard Diagnostics</p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-6 text-zinc-500">
-            <span className="flex items-center gap-2 bg-[#121218] border border-zinc-900 px-3 py-1.5 rounded-lg">
-              <span className="text-[10px] text-zinc-600 font-semibold">FEED:</span>
-              <span className={backendOnline ? "text-emerald-400 font-bold" : "text-amber-500 font-bold"}>
+          <div className="flex flex-wrap items-center gap-6 text-zinc-400">
+            <span className="flex items-center gap-2 bg-[#09090b] border border-zinc-900 px-3.5 py-1.5 rounded-full text-xs">
+              <span className="text-zinc-500 font-medium mr-1">FEED:</span>
+              <span className={backendOnline ? "text-emerald-400 font-semibold" : "text-amber-500 font-semibold"}>
                 {backendOnline ? "LIVE API CONNECTED" : "SANDBOX SIMULATION"}
               </span>
             </span>
-            <span className="flex items-center gap-2">
-              <Clock size={12} className="text-zinc-600" /> UTC: {new Date().toISOString().split('T')[1].split('.')[0]}
+            <span className="flex items-center gap-2 text-xs text-zinc-500">
+              <Clock size={14} className="text-zinc-600" /> <span className="font-mono">UTC: {new Date().toISOString().split('T')[1].split('.')[0]}</span>
             </span>
-            <span className="flex items-center gap-2">
-              <Activity size={12} className="text-zinc-600" /> Latency: {backendOnline ? '4ms' : '0ms'}
+            <span className="flex items-center gap-2 text-xs text-zinc-500">
+              <Activity size={14} className="text-zinc-600" /> Latency: <span className="font-mono">{backendOnline ? '4ms' : '0ms'}</span>
             </span>
-            <span className="flex items-center gap-2">
-              <Cpu size={12} className="text-zinc-600" /> CPU Load: {backendOnline ? '6%' : '1%'}
+            <span className="flex items-center gap-2 text-xs text-zinc-500">
+              <Cpu size={14} className="text-zinc-600" /> CPU: <span className="font-mono">{backendOnline ? '6%' : '1%'}</span>
             </span>
           </div>
         </header>
@@ -711,7 +711,7 @@ export default function Dashboard() {
             title="PORTFOLIO TRADES" 
             value={backendOnline ? `${systemState.risk.wins_today}W - ${systemState.risk.losses_today}L` : `${activeHistoryList.filter(h => h.pnl > 0).length}W - ${activeHistoryList.filter(h => h.pnl <= 0).length}L`} 
             sub={backendOnline ? `WIN RATE: ${systemState.risk.win_rate.toFixed(1)}%` : `WIN RATE: ${activeHistoryList.length > 0 ? ((activeHistoryList.filter(h => h.pnl > 0).length / activeHistoryList.length) * 100).toFixed(1) : '0.0'}%`}
-            subColor="text-zinc-400"
+            subColor="text-zinc-500"
           />
           <Metric 
             title="ACTIVE RISK SHIELD" 
@@ -722,21 +722,21 @@ export default function Dashboard() {
         </div>
 
         {/* WORKSTATION GRID */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* LEFT SECTION - SCANNER DIAGNOSTICS & ADVISORY (2/3 width) */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="lg:col-span-2 space-y-6">
             
             {/* COIN SCANNERS & LIVE INDICATORS */}
-            <div className="bg-[#0b0b0e] border border-zinc-900 rounded-xl p-4 space-y-4 shadow-xl">
-              <div className="flex justify-between items-center pb-2 border-b border-zinc-900">
+            <div className="bg-[#09090b]/10 border border-zinc-900 rounded-2xl p-5 space-y-5 shadow-sm">
+              <div className="flex justify-between items-center pb-3 border-b border-zinc-900/60">
                 <div className="flex items-center gap-2">
-                  <TerminalSquare size={14} className="text-zinc-500" />
-                  <span className="font-bold tracking-widest text-zinc-200 uppercase">Live Market Scanner & Guard Verdicts</span>
+                  <TerminalSquare size={16} className="text-zinc-500" />
+                  <span className="font-semibold text-sm text-zinc-200 tracking-tight">Market Scanners & Guard Verdicts</span>
                 </div>
-                <span className="text-[10px] text-zinc-500 flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  Diagnostics stream active
+                <span className="text-xs text-zinc-500 flex items-center gap-2 font-medium">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Active diagnostics
                 </span>
               </div>
 
@@ -755,50 +755,44 @@ export default function Dashboard() {
                     <div 
                       key={symbol}
                       onClick={() => setSelectedCoin(isSelected ? null : symbol)}
-                      className={`bg-[#0d0d12] border rounded-lg p-4 relative flex flex-col transition-all cursor-pointer select-none group hover:bg-zinc-900/30 ${isSelected ? 'border-zinc-300 ring-1 ring-zinc-300/10' : 'border-zinc-900'}`}
+                      className={`bg-zinc-900/10 border rounded-2xl p-5 relative flex flex-col transition-all duration-200 cursor-pointer select-none group hover:bg-zinc-900/20 ${isSelected ? 'border-zinc-500 bg-zinc-900/20' : 'border-zinc-900/80'}`}
                     >
                       {/* Badge / Header */}
-                      <div className="flex justify-between items-start mb-3">
+                      <div className="flex justify-between items-start mb-4">
                         <div>
-                          <span className="text-zinc-100 font-bold text-sm tracking-wide block">{symbol}</span>
-                          <span className={`px-1.5 py-0.5 mt-1 inline-block rounded text-[9px] font-bold uppercase tracking-wider ${
-                            regime === "trending" ? "bg-emerald-950/40 text-emerald-400 border border-emerald-900/30" : 
-                            (regime === "volatile" ? "bg-rose-950/40 text-rose-400 border border-rose-900/30" : 
-                            "bg-amber-950/40 text-amber-400 border border-amber-900/30")
+                          <span className="text-white font-bold text-sm tracking-tight block">{symbol}</span>
+                          <span className={`text-[10px] font-semibold mt-1 inline-flex items-center gap-1 uppercase tracking-wider ${
+                            regime === "trending" ? "text-emerald-400" : 
+                            (regime === "volatile" ? "text-rose-400" : "text-amber-500")
                           }`}>
-                            {regime.toUpperCase()} REGIME
+                            <span className="h-1 w-1 rounded-full bg-current"></span>
+                            {regime} regime
                           </span>
                         </div>
                         <div className="text-right">
-                          <span className="text-[10px] text-zinc-600 block">LIVE VALUE</span>
-                          <span className="text-sm text-zinc-100 font-semibold font-mono">
+                          <span className="text-[10px] text-zinc-500 block">LIVE VALUE</span>
+                          <span className="text-base text-white font-semibold font-mono tracking-tight">
                             ${livePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                       </div>
 
                       {/* Sparkline background */}
-                      <div className="h-10 opacity-15 my-2">
+                      <div className="h-10 opacity-30 my-3">
                         <Sparkline data={sparklines[symbol as keyof typeof sparklines]} />
                       </div>
 
                       {/* Guard status summary */}
-                      <div className="mt-auto pt-3 border-t border-zinc-900 flex justify-between items-center">
-                        <div className="flex items-center gap-1.5">
-                          {isBlocked ? (
-                            <span className="h-2 w-2 rounded-full bg-rose-500 shadow-sm shadow-rose-500/50"></span>
-                          ) : (isOpened ? (
-                            <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50"></span>
-                          ) : (
-                            <span className="h-2 w-2 rounded-full bg-amber-500 shadow-sm shadow-amber-500/50"></span>
-                          ))}
-                          <span className={`text-[10px] uppercase font-bold tracking-wider ${isBlocked ? 'text-rose-400' : (isOpened ? 'text-emerald-400' : 'text-amber-400')}`}>
+                      <div className="mt-auto pt-3 border-t border-zinc-900/85 flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <span className={`h-2 w-2 rounded-full ${isBlocked ? 'bg-rose-500' : (isOpened ? 'bg-emerald-500' : 'bg-amber-500')}`}></span>
+                          <span className={`text-[11px] font-medium ${isBlocked ? 'text-rose-400' : (isOpened ? 'text-emerald-400' : 'text-amber-400')}`}>
                             {isBlocked ? "Blocked by Guard" : (isOpened ? "Active Position" : "Pending Alignment")}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1 text-[10px] text-zinc-500">
+                        <div className="flex items-center gap-1.5 text-[11px] text-zinc-500">
                           <span>Verdict:</span>
-                          <span className="font-semibold text-zinc-300">{(diag?.blocked_by || "HOLD").replace("_", " ")}</span>
+                          <span className="font-semibold text-zinc-300 font-mono text-[10px] uppercase">{(diag?.blocked_by || "HOLD").replace("_", " ")}</span>
                         </div>
                       </div>
                     </div>
@@ -808,13 +802,13 @@ export default function Dashboard() {
             </div>
 
             {/* ADVISORY & EXPLAINABILITY DRAWER */}
-            <div className="bg-[#0b0b0e] border border-zinc-900 rounded-xl p-5 space-y-4 shadow-xl">
-              <div className="flex items-center justify-between pb-2 border-b border-zinc-900">
+            <div className="bg-[#09090b]/10 border border-zinc-900 rounded-2xl p-5 space-y-4 shadow-sm">
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-900/60">
                 <div className="flex items-center gap-2">
-                  <HelpCircle size={14} className="text-zinc-500" />
-                  <span className="font-bold tracking-widest text-zinc-200 uppercase">Adaptive Guard & Explainability Panel</span>
+                  <HelpCircle size={16} className="text-zinc-500" />
+                  <span className="font-semibold text-sm text-zinc-200 tracking-tight">Diagnostics & Market Advisory</span>
                 </div>
-                <span className="text-[9px] text-zinc-400 font-bold">EXPLAINABLE AI // DIAGNOSE WHY BOT ISN&apos;T TRADING</span>
+                <span className="text-xs text-zinc-500 font-medium">Real-time status</span>
               </div>
 
               <div className="space-y-4">
@@ -827,62 +821,62 @@ export default function Dashboard() {
                   const rsi = diag?.rsi ? diag.rsi.toFixed(1) : "50.0";
                   
                   return (
-                    <div key={symbol} className="bg-[#0e0e13] border border-zinc-900 rounded-lg p-4 space-y-3">
+                    <div key={symbol} className="bg-zinc-900/10 border border-zinc-900/80 rounded-xl p-5 space-y-4">
                       <div className="flex justify-between items-center">
-                        <span className="font-bold text-zinc-200">{symbol} Diagnose</span>
-                        <div className="flex items-center gap-4 text-[10px]">
-                          <span className="text-zinc-500">Regime: <strong className="text-zinc-300">{regime.toUpperCase()}</strong></span>
-                          <span className="text-zinc-500">Score: <strong className="text-zinc-300">{score}/{threshold}</strong></span>
-                          <span className="text-zinc-500">ML Confidence: <strong className="text-zinc-300">{mlConf}%</strong></span>
+                        <span className="font-semibold text-sm text-zinc-200">{symbol} Status</span>
+                        <div className="flex items-center gap-4 text-xs text-zinc-500 font-medium">
+                          <span>Regime: <strong className="text-zinc-300 font-mono text-[11px]">{regime.toUpperCase()}</strong></span>
+                          <span>Score: <strong className="text-zinc-300 font-mono text-[11px]">{score}/{threshold}</strong></span>
+                          <span>Confidence: <strong className="text-zinc-300 font-mono text-[11px]">{mlConf}%</strong></span>
                         </div>
                       </div>
 
                       {/* Technical alignment metrics */}
-                      <div className="grid grid-cols-4 gap-2 text-[10px] bg-zinc-950/50 p-2 rounded border border-zinc-900/60">
-                        <div className="text-center border-r border-zinc-900">
-                          <span className="text-zinc-500 block">RSI ({rsi})</span>
-                          <span className={`font-semibold ${diag?.rsi_sig === "BUY" ? "text-emerald-400" : (diag?.rsi_sig === "SELL" ? "text-rose-400" : "text-zinc-400")}`}>
+                      <div className="grid grid-cols-4 gap-3 text-xs bg-zinc-950/20 p-3 rounded-lg border border-zinc-900">
+                        <div className="text-center border-r border-zinc-900/60">
+                          <span className="text-zinc-500 block text-[10px] uppercase tracking-wider mb-0.5">RSI ({rsi})</span>
+                          <span className={`font-semibold font-mono text-[11px] ${diag?.rsi_sig === "BUY" ? "text-emerald-400" : (diag?.rsi_sig === "SELL" ? "text-rose-400" : "text-zinc-400")}`}>
                             {diag?.rsi_sig || "HOLD"}
                           </span>
                         </div>
-                        <div className="text-center border-r border-zinc-900">
-                          <span className="text-zinc-500 block">Bollinger Band</span>
-                          <span className={`font-semibold ${diag?.bb_sig === "BUY" ? "text-emerald-400" : (diag?.bb_sig === "SELL" ? "text-rose-400" : "text-zinc-400")}`}>
+                        <div className="text-center border-r border-zinc-900/60">
+                          <span className="text-zinc-500 block text-[10px] uppercase tracking-wider mb-0.5">Bollinger</span>
+                          <span className={`font-semibold font-mono text-[11px] ${diag?.bb_sig === "BUY" ? "text-emerald-400" : (diag?.bb_sig === "SELL" ? "text-rose-400" : "text-zinc-400")}`}>
                             {diag?.bb_sig || "HOLD"}
                           </span>
                         </div>
-                        <div className="text-center border-r border-zinc-900">
-                          <span className="text-zinc-500 block">MACD / SMA</span>
-                          <span className={`font-semibold ${diag?.sma_sig === "BUY" ? "text-emerald-400" : (diag?.sma_sig === "SELL" ? "text-rose-400" : "text-zinc-400")}`}>
+                        <div className="text-center border-r border-zinc-900/60">
+                          <span className="text-zinc-500 block text-[10px] uppercase tracking-wider mb-0.5">MACD / SMA</span>
+                          <span className={`font-semibold font-mono text-[11px] ${diag?.sma_sig === "BUY" ? "text-emerald-400" : (diag?.sma_sig === "SELL" ? "text-rose-400" : "text-zinc-400")}`}>
                             {diag?.sma_sig || "HOLD"}
                           </span>
                         </div>
                         <div className="text-center">
-                          <span className="text-zinc-500 block">4H Trend Bias</span>
-                          <span className={`font-semibold ${diag?.market_bullish ? "text-emerald-400" : "text-rose-400"}`}>
+                          <span className="text-zinc-500 block text-[10px] uppercase tracking-wider mb-0.5">4H Bias</span>
+                          <span className={`font-semibold font-mono text-[11px] ${diag?.market_bullish ? "text-emerald-400" : "text-rose-400"}`}>
                             {diag?.market_bullish ? "BULLISH" : "BEARISH"}
                           </span>
                         </div>
                       </div>
 
                       {/* Diagnostic Explainer */}
-                      <div className={`p-3 rounded-lg flex items-start gap-3 border ${
+                      <div className={`p-4 rounded-xl flex items-start gap-3 border ${
                         diag?.blocked_by && diag.blocked_by !== "POSITION_ALREADY_OPEN" 
-                          ? "bg-rose-950/10 border-rose-900/30 text-rose-200/90" 
+                          ? "bg-rose-950/5 border-rose-900/25 text-rose-300/90" 
                           : (diag?.blocked_by === "POSITION_ALREADY_OPEN" 
-                            ? "bg-emerald-950/10 border-emerald-900/30 text-emerald-200/90" 
-                            : "bg-zinc-950/60 border-zinc-900 text-zinc-400")
+                            ? "bg-emerald-950/5 border-emerald-900/25 text-emerald-300/90" 
+                            : "bg-zinc-900/5 border-zinc-900 text-zinc-400")
                       }`}>
                         <div className="mt-0.5">
                           {diag?.blocked_by && diag.blocked_by !== "POSITION_ALREADY_OPEN" ? (
-                            <AlertTriangle size={14} className="text-rose-500 flex-none" />
+                            <AlertTriangle size={15} className="text-rose-400 flex-none" />
                           ) : (diag?.blocked_by === "POSITION_ALREADY_OPEN" ? (
-                            <CheckCircle2 size={14} className="text-emerald-500 flex-none" />
+                            <CheckCircle2 size={15} className="text-emerald-400 flex-none" />
                           ) : (
-                            <Activity size={14} className="text-zinc-500 flex-none" />
+                            <Activity size={15} className="text-zinc-500 flex-none" />
                           ))}
                         </div>
-                        <div className="leading-relaxed text-[11px]">
+                        <div className="leading-relaxed text-[12px]">
                           {getAdvisoryMessage(symbol, diag)}
                         </div>
                       </div>
@@ -893,35 +887,35 @@ export default function Dashboard() {
             </div>
 
             {/* NO-TRADE 24H+ DIAGNOSTICS CARD */}
-            <div className="bg-[#0b0b0e] border border-zinc-900 rounded-xl p-5 space-y-4 shadow-xl">
-              <div className="flex items-center justify-between pb-2 border-b border-zinc-900">
+            <div className="bg-[#09090b]/10 border border-zinc-900 rounded-2xl p-5 space-y-4 shadow-sm">
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-900/60">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle size={14} className="text-amber-500" />
-                  <span className="font-bold tracking-widest text-zinc-200 uppercase">24H+ Inactivity Diagnostics</span>
+                  <AlertTriangle size={16} className="text-zinc-500" />
+                  <span className="font-semibold text-sm text-zinc-200 tracking-tight">System Inactivity Monitor</span>
                 </div>
-                <span className="text-[9px] text-amber-500 font-bold">MONITORING SYSTEM LATENCY & INACTIVITY</span>
+                <span className="text-xs text-zinc-500 font-medium">Inactivity alerts</span>
               </div>
               
               <div className="space-y-3">
                 {checkNoTradeDiagnostics().map(({ symbol, noTradeFor24h, statusMessage, reason }) => (
-                  <div key={symbol} className={`p-3 rounded-lg border flex flex-col gap-1.5 transition-colors ${
+                  <div key={symbol} className={`p-4 rounded-xl border flex flex-col gap-2 transition-colors ${
                     noTradeFor24h 
-                      ? "bg-amber-950/10 border-amber-900/30 text-amber-200/90" 
-                      : "bg-[#0e0e13] border-zinc-900 text-zinc-400"
+                      ? "bg-amber-950/5 border-amber-900/25 text-amber-300/95" 
+                      : "bg-zinc-900/10 border-zinc-900/80 text-zinc-400"
                   }`}>
                     <div className="flex justify-between items-center">
-                      <span className="font-bold text-zinc-200">{symbol}</span>
-                      <span className={`text-[9px] font-semibold px-1.5 py-0.2 rounded uppercase ${
+                      <span className="font-semibold text-zinc-200">{symbol}</span>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase ${
                         noTradeFor24h ? "bg-amber-950/40 text-amber-400 border border-amber-900/30 animate-pulse" : "bg-zinc-900 text-zinc-500"
                       }`}>
-                        {noTradeFor24h ? "⚠️ 24H+ INACTIVE" : "ACTIVE / RECENT"}
+                        {noTradeFor24h ? "24h+ Inactive" : "Active"}
                       </span>
                     </div>
-                    <div className="text-[10px] text-zinc-400 flex items-center gap-1.5">
+                    <div className="text-xs text-zinc-400 flex items-center gap-1.5">
                       <span>{statusMessage}</span>
                     </div>
-                    <div className="text-[10px] leading-relaxed pl-2 border-l border-zinc-800 text-zinc-500">
-                      <strong className="text-zinc-400">Diagnosis:</strong> {reason}
+                    <div className="text-xs leading-relaxed pl-3 border-l border-zinc-800 text-zinc-500">
+                      <strong className="text-zinc-400 font-medium">Diagnosis:</strong> {reason}
                     </div>
                   </div>
                 ))}
@@ -931,20 +925,20 @@ export default function Dashboard() {
           </div>
 
           {/* RIGHT SECTION - STRATEGY OPTIMIZATION CONSOLE (1/3 width) */}
-          <div className="bg-[#0b0b0e] border border-zinc-900 rounded-xl p-5 shadow-xl space-y-4">
-            <div className="flex items-center gap-2 pb-2 border-b border-zinc-900">
-              <Sliders size={14} className="text-zinc-500" />
-              <span className="font-bold tracking-widest text-zinc-200 uppercase">Auto-Trading Optimizer</span>
+          <div className="bg-[#09090b]/10 border border-zinc-900 rounded-2xl p-5 shadow-sm space-y-5">
+            <div className="flex items-center gap-2 pb-3 border-b border-zinc-900/60">
+              <Sliders size={16} className="text-zinc-500" />
+              <span className="font-semibold text-sm text-zinc-200 tracking-tight">Auto-Trading Console</span>
             </div>
 
-            <p className="text-[10px] text-zinc-500 leading-relaxed">
-              Dynamically bypass trend guards in choppy/ranging markets to authorize the mean-reversion scanner to place trades immediately.
+            <p className="text-xs text-zinc-500 leading-relaxed">
+              Configure target strategy settings, adjust mathematical constraints, and configure the real-time execution engine.
             </p>
 
-            <div className="space-y-4 pt-2">
+            <div className="space-y-5 pt-2">
               
               {/* TOGGLES */}
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 <ConsoleToggle 
                   label="Scanner Auto-Trading" 
                   description="Toggle the automatic market scanner loop"
@@ -998,11 +992,11 @@ export default function Dashboard() {
               </div>
 
               {/* SLIDERS & NUMBERS */}
-              <div className="space-y-3 pt-3 border-t border-zinc-900">
+              <div className="space-y-4 pt-4 border-t border-zinc-900">
                 <div>
-                  <div className="flex justify-between text-[11px] mb-1">
-                    <span className="text-zinc-400 font-semibold">Flat Risk Per Trade</span>
-                    <span className="text-zinc-200 font-bold">{(activeSettings.risk_per_trade * 100).toFixed(1)}%</span>
+                  <div className="flex justify-between text-xs mb-1.5">
+                    <span className="text-zinc-400 font-medium">Flat Risk Per Trade</span>
+                    <span className="text-white font-semibold font-mono">{(activeSettings.risk_per_trade * 100).toFixed(1)}%</span>
                   </div>
                   <input 
                     type="range" 
@@ -1011,28 +1005,28 @@ export default function Dashboard() {
                     step="0.5"
                     value={activeSettings.risk_per_trade * 100}
                     onChange={handleSliderChange}
-                    className="w-full h-1 bg-zinc-950 rounded-lg appearance-none cursor-pointer accent-zinc-300"
+                    className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-white"
                   />
-                  <span className="text-[9px] text-zinc-600 block mt-0.5">Budget percentage exposed per SL distance</span>
+                  <span className="text-[11px] text-zinc-500 block mt-1">Budget percentage exposed per SL distance</span>
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-[11px] mb-1">
-                    <span className="text-zinc-400 font-semibold">Max Position Size Limit</span>
-                    <span className="text-zinc-300 font-bold">${activeSettings.max_notional_per_trade.toFixed(2)} USDT</span>
+                  <div className="flex justify-between text-xs mb-1.5">
+                    <span className="text-zinc-400 font-medium">Max Position Size Limit</span>
+                    <span className="text-white font-semibold font-mono">${activeSettings.max_notional_per_trade.toFixed(2)} USDT</span>
                   </div>
                   <div className="relative flex items-center">
-                    <span className="absolute left-3 text-zinc-600">$</span>
+                    <span className="absolute left-3 text-zinc-500 font-mono">$</span>
                     <input 
                       type="number" 
                       min="1.0" 
                       max="10.0" 
                       value={activeSettings.max_notional_per_trade}
                       onChange={handleNotionalChange}
-                      className="w-full bg-zinc-950 border border-zinc-900 rounded px-7 py-1.5 focus:border-zinc-500 focus:outline-none text-zinc-300"
+                      className="w-full bg-[#09090b]/40 border border-zinc-900 rounded-xl px-7 py-2 focus:border-zinc-700 focus:outline-none text-white text-xs font-mono"
                     />
                   </div>
-                  <span className="text-[9px] text-zinc-600 block mt-0.5">Absolute maximum cost allowed per simulated order</span>
+                  <span className="text-[11px] text-zinc-500 block mt-1">Absolute maximum cost allowed per simulated order</span>
                 </div>
               </div>
 
@@ -1041,11 +1035,11 @@ export default function Dashboard() {
                 <button 
                   onClick={() => saveSettings(activeSettings)}
                   disabled={apiSaving}
-                  className="w-full mt-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-950 font-bold py-2 rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="w-full mt-2 bg-white hover:bg-zinc-200 text-zinc-950 font-semibold py-2 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 text-xs shadow-sm"
                 >
                   {apiSaving ? (
                     <>
-                      <RefreshCw size={12} className="animate-spin" /> Saving Settings...
+                      <RefreshCw size={14} className="animate-spin" /> Saving Settings...
                     </>
                   ) : (
                     "Save Strategy Adjustments"
@@ -1054,7 +1048,7 @@ export default function Dashboard() {
               )}
 
               {!backendOnline && (
-                <div className="p-2 border border-dashed border-amber-900/30 bg-amber-950/5 rounded text-amber-500/80 text-[10px] text-center leading-relaxed">
+                <div className="p-3 border border-dashed border-amber-900/30 bg-amber-950/5 rounded-xl text-amber-500/80 text-[11px] text-center leading-relaxed">
                   🔧 Running in local Sandbox simulation. All settings hot-reload immediately!
                 </div>
               )}
@@ -1065,36 +1059,36 @@ export default function Dashboard() {
         </div>
 
         {/* POSITIONS & HISTORIES */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* ACTIVE POSITIONS TABLE (2/3 width) */}
-          <div className="lg:col-span-2 bg-[#0b0b0e] border border-zinc-900 rounded-xl p-4 shadow-xl flex flex-col min-h-[300px]">
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-900">
+          <div className="lg:col-span-2 bg-[#09090b]/10 border border-zinc-900 rounded-2xl p-5 shadow-sm flex flex-col min-h-[300px]">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-900/60">
               <div className="flex items-center gap-2">
-                <Shield size={14} className="text-zinc-500" />
-                <span className="font-bold tracking-widest text-zinc-200 uppercase">Active Running Trades</span>
+                <Shield size={16} className="text-zinc-500" />
+                <span className="font-semibold text-sm text-zinc-200 tracking-tight">Active Running Trades</span>
               </div>
-              <span className="text-zinc-500 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-900 font-semibold text-[10px]">
+              <span className="text-zinc-400 bg-zinc-900/60 px-2.5 py-0.5 rounded-full border border-zinc-900 text-[11px] font-mono">
                 POSITIONS: {activeTradesList.length}
               </span>
             </div>
             
-            <div className="grid grid-cols-6 text-zinc-500 border-b border-zinc-900 pb-2 mb-2 px-2 tracking-wide font-medium mt-3 text-[10px]">
-               <span>SYMBOL / SIDE</span>
-               <span>ENTRY / CURRENT</span>
-               <span>SIZE / COST</span>
-               <span>STOP / TAKE PROFIT</span>
-               <span className="text-right">UNREALIZED PnL</span>
-               <span className="text-right">ACTION</span>
+            <div className="grid grid-cols-6 text-zinc-500 border-b border-zinc-900/60 pb-2.5 mb-3 px-3 font-medium mt-4 text-[11px] uppercase tracking-wider">
+               <span>Symbol / Side</span>
+               <span>Entry / Current</span>
+               <span>Size / Cost</span>
+               <span>Stop / Take Profit</span>
+               <span className="text-right">Unrealized PnL</span>
+               <span className="text-right">Action</span>
             </div>
             
             {activeTradesList.length === 0 ? (
-              <div className="flex-grow flex flex-col items-center justify-center text-zinc-600 text-xs py-12 space-y-2 border border-dashed border-zinc-900/40 rounded-lg bg-zinc-950/10">
+              <div className="flex-grow flex flex-col items-center justify-center text-zinc-500 text-xs py-12 space-y-2 border border-dashed border-zinc-900/40 rounded-2xl bg-zinc-900/5">
                 <span>[ NO ACTIVE REAL-TIME POSITIONS RUNNING ]</span>
-                <span className="text-[10px] text-zinc-700">The automatic scanner will place a trade once filters align, or you can bypass guards to trade immediately.</span>
+                <span className="text-[11px] text-zinc-500">The automatic scanner will place a trade once filters align, or you can bypass guards to trade immediately.</span>
               </div>
             ) : (
-              <div className="space-y-1.5 flex-grow overflow-y-auto max-h-[300px]">
+              <div className="space-y-2 flex-grow overflow-y-auto max-h-[300px]">
                 {activeTradesList.map((t, index) => {
                   const entry = parseFloat(t.entry_price) || 0;
                   const currentPrice = parseFloat(t.current_price) || activePrices?.[t.symbol] || entry;
@@ -1107,34 +1101,34 @@ export default function Dashboard() {
                   const isProfit = pnlVal >= 0;
                   
                   return (
-                    <div key={index} className="grid grid-cols-6 items-center px-2 py-2 bg-[#0e0e13] border border-zinc-900/80 rounded hover:bg-[#12121a]/20 transition-all text-zinc-300 text-[11px]">
+                    <div key={index} className="grid grid-cols-6 items-center px-3 py-3 bg-zinc-900/10 border border-zinc-900/60 rounded-xl hover:bg-zinc-900/20 transition-all text-zinc-300 text-xs">
                       <div className="flex flex-col">
-                        <span className="text-zinc-100 font-semibold">{t.symbol}</span>
-                        <span className={`uppercase font-bold text-[8px] tracking-widest mt-0.5 max-w-max leading-none ${t.side === 'buy' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        <span className="text-white font-semibold">{t.symbol}</span>
+                        <span className={`uppercase font-semibold text-[9px] tracking-wider mt-1 max-w-max leading-none ${t.side === 'buy' ? 'text-emerald-400' : 'text-rose-400'}`}>
                           {t.side === 'buy' ? '● LONG' : '● SHORT'}
                         </span>
                       </div>
                       
-                      <div className="flex flex-col">
-                        <span>${entry.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</span>
-                        <span className="text-[9px] text-zinc-500">${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</span>
+                      <div className="flex flex-col font-mono text-[11px]">
+                        <span className="text-zinc-200">${entry.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</span>
+                        <span className="text-zinc-500 text-[10px]">${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</span>
                       </div>
                       
-                      <div className="flex flex-col">
-                        <span>{qty.toFixed(5)}</span>
-                        <span className="text-[9px] text-zinc-500">${(qty * entry).toFixed(2)} USDT</span>
+                      <div className="flex flex-col font-mono text-[11px]">
+                        <span className="text-zinc-200">{qty.toFixed(5)}</span>
+                        <span className="text-zinc-500 text-[10px]">${(qty * entry).toFixed(2)} USDT</span>
                       </div>
                       
-                      <div className="flex flex-col">
+                      <div className="flex flex-col font-mono text-[11px]">
                         <span className="text-rose-400/80">SL: ${parseFloat(t.sl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         <span className="text-emerald-400/80">TP: ${parseFloat(t.tp).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                       
-                      <div className="text-right flex flex-col justify-center items-end pr-2">
-                        <span className={`font-semibold text-xs ${isProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      <div className="text-right flex flex-col justify-center items-end pr-3 font-mono text-[11px]">
+                        <span className={`font-semibold ${isProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
                           {isProfit ? '+$' : '-$'}{Math.abs(pnlVal).toFixed(2)}
                         </span>
-                        <span className={`text-[9px] ${isProfit ? 'text-emerald-500' : 'text-rose-500'}`}>
+                        <span className={`text-[10px] ${isProfit ? 'text-emerald-500' : 'text-rose-500'}`}>
                           {isProfit ? '+' : ''}{pnlPct.toFixed(2)}%
                         </span>
                       </div>
@@ -1143,10 +1137,10 @@ export default function Dashboard() {
                         <button
                           onClick={() => closePosition(t.symbol)}
                           disabled={apiCloseSaving === t.symbol}
-                          className="bg-rose-950/20 hover:bg-rose-900/30 text-rose-400 hover:text-rose-300 border border-rose-950/60 rounded px-2.5 py-1 transition-all cursor-pointer disabled:opacity-50 text-[10px]"
+                          className="bg-zinc-900 hover:bg-zinc-800 text-rose-400 hover:text-rose-300 border border-zinc-800 hover:border-zinc-700 px-3 py-1.5 rounded-lg transition-all cursor-pointer disabled:opacity-50 text-[10px] font-medium"
                         >
                           {apiCloseSaving === t.symbol ? (
-                            <RefreshCw size={10} className="animate-spin" />
+                            <RefreshCw size={12} className="animate-spin" />
                           ) : (
                             "CLOSE"
                           )}
@@ -1160,44 +1154,44 @@ export default function Dashboard() {
           </div>
 
           {/* COMPLETED TRADES HISTORY (1/3 width) */}
-          <div className="bg-[#0b0b0e] border border-zinc-900 rounded-xl p-4 shadow-xl flex flex-col min-h-[300px]">
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-900">
+          <div className="bg-[#09090b]/10 border border-zinc-900 rounded-2xl p-5 shadow-sm flex flex-col min-h-[300px]">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-900/60">
               <div className="flex items-center gap-2">
-                <Clock size={14} className="text-zinc-500" />
-                <span className="font-bold tracking-widest text-zinc-200 uppercase">Completed Trades</span>
+                <Clock size={16} className="text-zinc-500" />
+                <span className="font-semibold text-sm text-zinc-200 tracking-tight">Completed Trades</span>
               </div>
               
               {activeHistoryList.length > 0 && (
                 <button
                   onClick={clearHistory}
                   disabled={apiClearSaving}
-                  className="text-zinc-500 hover:text-rose-400 flex items-center gap-1 transition-colors cursor-pointer"
+                  className="text-zinc-500 hover:text-rose-400 flex items-center gap-1 transition-colors cursor-pointer text-xs font-medium"
                 >
-                  <Trash2 size={10} /> Clear
+                  <Trash2 size={12} /> Clear
                 </button>
               )}
             </div>
 
             {activeHistoryList.length === 0 ? (
-              <div className="flex-grow flex items-center justify-center text-zinc-600 text-xs py-12">
+              <div className="flex-grow flex items-center justify-center text-zinc-500 text-xs py-12">
                 [ NO TRADE HISTORY YET ]
               </div>
             ) : (
-              <div className="mt-3 space-y-2 overflow-y-auto max-h-[220px] flex-grow pr-1">
+              <div className="mt-4 space-y-2 overflow-y-auto max-h-[220px] flex-grow pr-1">
                 {activeHistoryList.map((item, idx) => {
                   const pnl = parseFloat(item.pnl) || 0;
                   const isProfit = pnl >= 0;
                   return (
-                    <div key={idx} className="bg-zinc-950/60 border border-zinc-900/80 rounded p-2 flex justify-between items-center text-[10px]">
+                    <div key={idx} className="bg-zinc-900/5 border border-zinc-900/80 rounded-xl p-3 flex justify-between items-center text-xs">
                       <div>
-                        <span className="font-bold text-zinc-300">{item.symbol}</span>
-                        <div className="flex items-center gap-2 text-zinc-600 text-[8px] mt-0.5 uppercase">
+                        <span className="font-semibold text-zinc-200">{item.symbol}</span>
+                        <div className="flex items-center gap-2 text-zinc-500 text-[10px] mt-1 uppercase font-medium">
                           <span>{item.reason}</span>
                           <span>•</span>
-                          <span>{item.closed_at ? new Date(item.closed_at).toLocaleTimeString() : 'N/A'}</span>
+                          <span className="font-mono text-[9px]">{item.closed_at ? new Date(item.closed_at).toLocaleTimeString() : 'N/A'}</span>
                         </div>
                       </div>
-                      <span className={`font-semibold text-xs px-2 py-0.5 rounded ${isProfit ? 'bg-emerald-950/20 text-emerald-400 border border-emerald-950/50' : 'bg-rose-950/20 text-rose-400 border border-rose-950/50'}`}>
+                      <span className={`font-semibold font-mono text-xs px-2.5 py-0.5 rounded-full ${isProfit ? 'bg-emerald-950/20 text-emerald-400 border border-emerald-950/50' : 'bg-rose-950/20 text-rose-400 border border-rose-950/50'}`}>
                         {isProfit ? '+$' : '-$'}{Math.abs(pnl).toFixed(2)}
                       </span>
                     </div>
@@ -1210,33 +1204,36 @@ export default function Dashboard() {
         </div>
 
         {/* SYSTEM EVENT LOGS */}
-        <div className="bg-[#0b0b0e] border border-zinc-900 rounded-xl p-4 shadow-xl">
-          <div className="flex items-center justify-between pb-3 border-b border-zinc-900 mb-3">
+        <div className="bg-[#09090b]/10 border border-zinc-900 rounded-2xl p-5 shadow-sm">
+          <div className="flex items-center justify-between pb-3 border-b border-zinc-900/60 mb-4">
             <div className="flex items-center gap-2">
-              <TerminalSquare size={14} className="text-zinc-500" />
-              <span className="font-bold tracking-widest text-zinc-200 uppercase">Live Output logs</span>
+              <TerminalSquare size={16} className="text-zinc-500" />
+              <span className="font-semibold text-sm text-zinc-200 tracking-tight">Live Output logs</span>
             </div>
-            <span className="text-[9px] text-zinc-600 font-bold">STREAM ONLINE</span>
+            <span className="text-[10px] text-zinc-500 font-semibold tracking-wider uppercase flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              Live Stream
+            </span>
           </div>
 
-          <div className="bg-[#070709] border border-zinc-900 rounded-lg p-3 min-h-[120px] max-h-[200px] overflow-y-auto space-y-1.5 font-mono text-[10px] text-zinc-400">
+          <div className="bg-[#050507] border border-zinc-900/80 rounded-xl p-4 min-h-[140px] max-h-[220px] overflow-y-auto space-y-2 font-mono text-xs text-zinc-400">
             {activeLogsList.length === 0 ? (
-              <div className="text-zinc-700 flex items-center justify-center h-20">
+              <div className="text-zinc-650 flex items-center justify-center h-24">
                 [ LOADING LIVE BOT EXECUTION STREAM ]
               </div>
             ) : (
               activeLogsList.map((log, index) => {
                 let colorClass = "text-zinc-400";
-                if (log.message.includes("OPENED")) colorClass = "text-emerald-400 font-semibold";
-                else if (log.message.includes("CLOSED")) colorClass = "text-amber-400 font-semibold";
-                else if (log.message.includes("Blocked")) colorClass = "text-rose-400/90";
-                else if (log.message.includes("GUARD") || log.message.includes("Daily Loss")) colorClass = "text-rose-400 font-semibold";
+                if (log.message.includes("OPENED")) colorClass = "text-emerald-400 font-medium";
+                else if (log.message.includes("CLOSED")) colorClass = "text-amber-400 font-medium";
+                else if (log.message.includes("Blocked")) colorClass = "text-rose-400/80";
+                else if (log.message.includes("GUARD") || log.message.includes("Daily Loss")) colorClass = "text-rose-400 font-medium";
                 else if (log.message.includes("SCANNER")) colorClass = "text-zinc-500";
                 else if (log.message.includes("SYSTEM")) colorClass = "text-zinc-500";
                 
                 return (
-                  <div key={index} className="flex gap-4 hover:bg-zinc-900/20 p-0.5 rounded">
-                    <span className="text-zinc-600 flex-none">{log.time}</span>
+                  <div key={index} className="flex gap-4 hover:bg-zinc-900/30 p-1 rounded transition-colors">
+                    <span className="text-zinc-600 flex-none select-none">{log.time}</span>
                     <span className={`break-all ${colorClass}`}>{log.message}</span>
                   </div>
                 );
@@ -1251,13 +1248,14 @@ export default function Dashboard() {
 }
 
 // Sub-components
-function Metric({ title, value, sub, subColor = "text-zinc-600" }: any) {
+function Metric({ title, value, sub, subColor = "text-zinc-500" }: any) {
   return (
-    <div className="bg-[#0b0b0e] border border-zinc-900 rounded-xl p-4 flex flex-col justify-between hover:border-zinc-800 transition-colors shadow-lg relative overflow-hidden group">
-      <div className="absolute top-0 left-0 right-0 h-[2px] bg-zinc-300 scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
-      <span className="text-zinc-500 tracking-widest text-[9px] uppercase font-bold">{title}</span>
-      <span className="text-lg text-zinc-100 font-bold font-mono tracking-tight my-2">{value}</span>
-      <span className={`text-[10px] font-semibold ${subColor}`}>{sub}</span>
+    <div className="bg-zinc-900/10 border border-zinc-900 rounded-2xl p-5 flex flex-col justify-between hover:bg-zinc-900/20 hover:border-zinc-800 transition-all duration-200 shadow-sm relative overflow-hidden group">
+      <div>
+        <span className="text-zinc-500 tracking-wider text-[10px] uppercase font-semibold">{title}</span>
+        <div className="text-2xl text-white font-semibold font-mono tracking-tight mt-1.5">{value}</div>
+      </div>
+      <div className={`text-[11px] font-medium mt-3.5 ${subColor}`}>{sub}</div>
     </div>
   );
 }
@@ -1276,7 +1274,7 @@ function Sparkline({ data }: { data: {value: number}[] }) {
   }).join(' ');
 
   return (
-    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full stroke-zinc-400 fill-transparent stroke-[1.5]">
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full stroke-zinc-500/80 fill-transparent stroke-[1.5]">
       <polyline points={points} vectorEffect="non-scaling-stroke" />
     </svg>
   );
@@ -1284,23 +1282,23 @@ function Sparkline({ data }: { data: {value: number}[] }) {
 
 function ConsoleToggle({ label, description, active, onChange, isGuard = false }: { label: string, description: string, active: boolean, onChange: () => void, isGuard?: boolean }) {
   return (
-    <div className="flex items-start justify-between bg-zinc-950/40 border border-zinc-900/60 p-2.5 rounded hover:bg-[#12121a]/10 transition-all select-none">
-      <div className="space-y-0.5 max-w-[80%]">
-        <div className="flex items-center gap-1.5">
-          <span className="font-semibold text-zinc-300 text-[10.5px]">{label}</span>
+    <div className="flex items-start justify-between bg-zinc-900/10 border border-zinc-900 rounded-xl p-3 hover:border-zinc-800 transition-all duration-200 select-none">
+      <div className="space-y-1 max-w-[80%]">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-zinc-200 text-xs">{label}</span>
           {isGuard && (
-            <span className="text-[7.5px] px-1 py-0.2 rounded font-extrabold uppercase border border-rose-950/60 bg-rose-950/20 text-rose-400">
+            <span className="text-[8px] px-2 py-0.5 rounded-full font-semibold uppercase bg-rose-950/30 text-rose-400 border border-rose-900/30">
               GUARD
             </span>
           )}
         </div>
-        <p className="text-[8.5px] text-zinc-600 leading-tight">{description}</p>
+        <p className="text-[11px] text-zinc-550 leading-normal">{description}</p>
       </div>
       <button 
         onClick={onChange}
-        className={`w-8 h-4 rounded-full relative p-0.5 transition-colors cursor-pointer ${active ? 'bg-zinc-300' : 'bg-zinc-800'}`}
+        className={`w-9 h-5 rounded-full relative p-0.5 transition-colors duration-200 cursor-pointer ${active ? 'bg-white' : 'bg-zinc-800'}`}
       >
-        <span className={`h-3 w-3 bg-zinc-100 rounded-full block transition-transform ${active ? 'translate-x-4' : 'translate-x-0'}`}></span>
+        <span className={`h-4 w-4 rounded-full block transition-transform duration-200 ${active ? 'translate-x-4 bg-zinc-950' : 'translate-x-0 bg-zinc-400'}`}></span>
       </button>
     </div>
   );
