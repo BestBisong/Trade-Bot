@@ -668,7 +668,7 @@ export default function Dashboard() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-sm font-bold tracking-widest text-zinc-100 uppercase">J.A.R.V.I.S // QUANT WORKSTATION</h1>
-                <span className="text-[9px] text-[#8b5cf6] border border-[#8b5cf6]/30 px-1 py-0.2 rounded bg-[#8b5cf6]/5 uppercase">v2.1 Adaptive</span>
+                <span className="text-[9px] text-zinc-300 border border-zinc-800 px-1 py-0.2 rounded bg-zinc-900/50 uppercase">v2.1 Adaptive</span>
               </div>
               <p className="text-[10px] text-zinc-500 mt-0.5">Automated Multi-Regime Trading Engine & Guard Diagnostics</p>
             </div>
@@ -711,7 +711,7 @@ export default function Dashboard() {
             title="PORTFOLIO TRADES" 
             value={backendOnline ? `${systemState.risk.wins_today}W - ${systemState.risk.losses_today}L` : `${activeHistoryList.filter(h => h.pnl > 0).length}W - ${activeHistoryList.filter(h => h.pnl <= 0).length}L`} 
             sub={backendOnline ? `WIN RATE: ${systemState.risk.win_rate.toFixed(1)}%` : `WIN RATE: ${activeHistoryList.length > 0 ? ((activeHistoryList.filter(h => h.pnl > 0).length / activeHistoryList.length) * 100).toFixed(1) : '0.0'}%`}
-            subColor="text-[#8b5cf6]"
+            subColor="text-zinc-400"
           />
           <Metric 
             title="ACTIVE RISK SHIELD" 
@@ -755,7 +755,7 @@ export default function Dashboard() {
                     <div 
                       key={symbol}
                       onClick={() => setSelectedCoin(isSelected ? null : symbol)}
-                      className={`bg-[#0d0d12] border rounded-lg p-4 relative flex flex-col transition-all cursor-pointer select-none group hover:bg-[#12121a]/30 ${isSelected ? 'border-[#8b5cf6] ring-1 ring-[#8b5cf6]/20' : 'border-zinc-900'}`}
+                      className={`bg-[#0d0d12] border rounded-lg p-4 relative flex flex-col transition-all cursor-pointer select-none group hover:bg-zinc-900/30 ${isSelected ? 'border-zinc-300 ring-1 ring-zinc-300/10' : 'border-zinc-900'}`}
                     >
                       {/* Badge / Header */}
                       <div className="flex justify-between items-start mb-3">
@@ -811,10 +811,10 @@ export default function Dashboard() {
             <div className="bg-[#0b0b0e] border border-zinc-900 rounded-xl p-5 space-y-4 shadow-xl">
               <div className="flex items-center justify-between pb-2 border-b border-zinc-900">
                 <div className="flex items-center gap-2">
-                  <HelpCircle size={14} className="text-[#8b5cf6]" />
+                  <HelpCircle size={14} className="text-zinc-500" />
                   <span className="font-bold tracking-widest text-zinc-200 uppercase">Adaptive Guard & Explainability Panel</span>
                 </div>
-                <span className="text-[9px] text-[#8b5cf6] font-bold">EXPLAINABLE AI // DIAGNOSE WHY BOT ISN&apos;T TRADING</span>
+                <span className="text-[9px] text-zinc-400 font-bold">EXPLAINABLE AI // DIAGNOSE WHY BOT ISN&apos;T TRADING</span>
               </div>
 
               <div className="space-y-4">
@@ -933,7 +933,7 @@ export default function Dashboard() {
           {/* RIGHT SECTION - STRATEGY OPTIMIZATION CONSOLE (1/3 width) */}
           <div className="bg-[#0b0b0e] border border-zinc-900 rounded-xl p-5 shadow-xl space-y-4">
             <div className="flex items-center gap-2 pb-2 border-b border-zinc-900">
-              <Sliders size={14} className="text-[#8b5cf6]" />
+              <Sliders size={14} className="text-zinc-500" />
               <span className="font-bold tracking-widest text-zinc-200 uppercase">Auto-Trading Optimizer</span>
             </div>
 
@@ -1002,7 +1002,7 @@ export default function Dashboard() {
                 <div>
                   <div className="flex justify-between text-[11px] mb-1">
                     <span className="text-zinc-400 font-semibold">Flat Risk Per Trade</span>
-                    <span className="text-[#8b5cf6] font-bold">{(activeSettings.risk_per_trade * 100).toFixed(1)}%</span>
+                    <span className="text-zinc-200 font-bold">{(activeSettings.risk_per_trade * 100).toFixed(1)}%</span>
                   </div>
                   <input 
                     type="range" 
@@ -1011,7 +1011,7 @@ export default function Dashboard() {
                     step="0.5"
                     value={activeSettings.risk_per_trade * 100}
                     onChange={handleSliderChange}
-                    className="w-full h-1 bg-zinc-950 rounded-lg appearance-none cursor-pointer accent-[#8b5cf6]"
+                    className="w-full h-1 bg-zinc-950 rounded-lg appearance-none cursor-pointer accent-zinc-300"
                   />
                   <span className="text-[9px] text-zinc-600 block mt-0.5">Budget percentage exposed per SL distance</span>
                 </div>
@@ -1029,7 +1029,7 @@ export default function Dashboard() {
                       max="10.0" 
                       value={activeSettings.max_notional_per_trade}
                       onChange={handleNotionalChange}
-                      className="w-full bg-zinc-950 border border-zinc-900 rounded px-7 py-1.5 focus:border-[#8b5cf6] focus:outline-none text-zinc-300"
+                      className="w-full bg-zinc-950 border border-zinc-900 rounded px-7 py-1.5 focus:border-zinc-500 focus:outline-none text-zinc-300"
                     />
                   </div>
                   <span className="text-[9px] text-zinc-600 block mt-0.5">Absolute maximum cost allowed per simulated order</span>
@@ -1041,7 +1041,7 @@ export default function Dashboard() {
                 <button 
                   onClick={() => saveSettings(activeSettings)}
                   disabled={apiSaving}
-                  className="w-full mt-2 bg-[#8b5cf6] hover:bg-[#7c3aed] text-zinc-100 font-bold py-2 rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#8b5cf6]/15 hover:shadow-[#8b5cf6]/25 disabled:opacity-50"
+                  className="w-full mt-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-950 font-bold py-2 rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   {apiSaving ? (
                     <>
@@ -1254,7 +1254,7 @@ export default function Dashboard() {
 function Metric({ title, value, sub, subColor = "text-zinc-600" }: any) {
   return (
     <div className="bg-[#0b0b0e] border border-zinc-900 rounded-xl p-4 flex flex-col justify-between hover:border-zinc-800 transition-colors shadow-lg relative overflow-hidden group">
-      <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#8b5cf6] scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+      <div className="absolute top-0 left-0 right-0 h-[2px] bg-zinc-300 scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
       <span className="text-zinc-500 tracking-widest text-[9px] uppercase font-bold">{title}</span>
       <span className="text-lg text-zinc-100 font-bold font-mono tracking-tight my-2">{value}</span>
       <span className={`text-[10px] font-semibold ${subColor}`}>{sub}</span>
@@ -1276,7 +1276,7 @@ function Sparkline({ data }: { data: {value: number}[] }) {
   }).join(' ');
 
   return (
-    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full stroke-[#8b5cf6] fill-transparent stroke-[1.5]">
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full stroke-zinc-400 fill-transparent stroke-[1.5]">
       <polyline points={points} vectorEffect="non-scaling-stroke" />
     </svg>
   );
@@ -1298,7 +1298,7 @@ function ConsoleToggle({ label, description, active, onChange, isGuard = false }
       </div>
       <button 
         onClick={onChange}
-        className={`w-8 h-4 rounded-full relative p-0.5 transition-colors cursor-pointer ${active ? 'bg-[#8b5cf6]' : 'bg-zinc-800'}`}
+        className={`w-8 h-4 rounded-full relative p-0.5 transition-colors cursor-pointer ${active ? 'bg-zinc-300' : 'bg-zinc-800'}`}
       >
         <span className={`h-3 w-3 bg-zinc-100 rounded-full block transition-transform ${active ? 'translate-x-4' : 'translate-x-0'}`}></span>
       </button>
