@@ -698,7 +698,7 @@ export default function Dashboard() {
           <Metric 
             title="TOTAL CAPITAL" 
             value={`$${activeWallet.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
-            sub={backendOnline ? `${systemState.risk.daily_pnl_pct.toFixed(2)}% TODAY` : "VIRTUAL DEMO WALLET"}
+            sub={backendOnline ? `${systemState.risk.daily_pnl_pct >= 0 ? '+' : ''}${systemState.risk.daily_pnl_pct.toFixed(2)}% TODAY` : "VIRTUAL DEMO WALLET"}
             subColor={backendOnline && systemState.risk.daily_pnl_pct >= 0 ? "text-emerald-400" : (backendOnline ? "text-rose-400" : "text-zinc-500")}
           />
           <Metric 
@@ -1132,7 +1132,7 @@ export default function Dashboard() {
                       
                       <div className="text-right flex flex-col justify-center items-end pr-2">
                         <span className={`font-semibold text-xs ${isProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
-                          {isProfit ? '+' : ''}${pnlVal.toFixed(2)}
+                          {isProfit ? '+$' : '-$'}{Math.abs(pnlVal).toFixed(2)}
                         </span>
                         <span className={`text-[9px] ${isProfit ? 'text-emerald-500' : 'text-rose-500'}`}>
                           {isProfit ? '+' : ''}{pnlPct.toFixed(2)}%
@@ -1198,7 +1198,7 @@ export default function Dashboard() {
                         </div>
                       </div>
                       <span className={`font-semibold text-xs px-2 py-0.5 rounded ${isProfit ? 'bg-emerald-950/20 text-emerald-400 border border-emerald-950/50' : 'bg-rose-950/20 text-rose-400 border border-rose-950/50'}`}>
-                        {isProfit ? '+' : ''}${pnl.toFixed(2)}
+                        {isProfit ? '+$' : '-$'}{Math.abs(pnl).toFixed(2)}
                       </span>
                     </div>
                   );
