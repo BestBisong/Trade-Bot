@@ -451,7 +451,14 @@ async def run_bot():
                     hit_tp = (trade['side'] == "buy" and current_price >= trade['tp']) or (trade['side'] == "sell" and current_price <= trade['tp'])
                     hit_sl = (trade['side'] == "buy" and current_price <= trade['sl']) or (trade['side'] == "sell" and current_price >= trade['sl'])
                     
-                    if hit_tp or hit_sl or now >= trade['expiry']:
+                    expiry_val = trade['expiry']
+                    if isinstance(expiry_val, str):
+                        try:
+                            expiry_val = datetime.datetime.fromisoformat(expiry_val)
+                        except Exception:
+                            expiry_val = now + datetime.timedelta(days=7)
+                            
+                    if hit_tp or hit_sl or now >= expiry_val:
                         exit_fill = apply_slippage(current_price, trade['side'], SLIPPAGE_BPS)
                         pnl_second = settlement_pnl(trade['entry_price'], exit_fill, trade['qty'], trade['side'], TAKER_FEE_RATE)
                         
