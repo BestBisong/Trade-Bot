@@ -33,3 +33,12 @@ htmlcov/
 build/
 dist/
 *.egg-info/
+
+# Bot State & JSON Database files
+bot_state.json
+scan_heartbeat.json
+scan_diagnostics.json
+active_trades.json
+trade_history.json
+settings_config.json
+bot_commands.json
