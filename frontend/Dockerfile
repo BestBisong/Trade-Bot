@@ -1,37 +1,17 @@
-# Stage 1: Build Next.js application
-FROM node:20-alpine AS builder
-WORKDIR /app
-
-# Copy dependency manifests
-COPY package*.json ./
-
-# Install dependencies
-RUN npm install
-
-# Copy full frontend codebase
-COPY . .
-
-# Set env to disable telemetry during build
-ENV NEXT_TELEMETRY_DISABLED=1
-
-# Build Next.js app in standalone mode
-RUN npm run build
-
-# Stage 2: Clean and lightweight runner
+# Lightweight production runner for Next.js
 FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-
-# Copy only the compiled standalone builds
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-
-# Expose port and run server.js
-EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
+# Copy pre-built standalone folder, static files, and public assets directly
+COPY .next/standalone ./
+COPY .next/static ./.next/static
+COPY public ./public
+
+# Expose port and run server.js
+EXPOSE 3000
 CMD ["node", "server.js"]
