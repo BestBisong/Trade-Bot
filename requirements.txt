@@ -4,7 +4,6 @@ numpy
 ta
 fastapi
 uvicorn
-ta_lib
 python-dotenv
 python-telegram-bot
 mplfinance
