@@ -10,8 +10,9 @@ _BB = BollingerStrategy()
 
 def generate(df, trend_df, ml, tuned_params=None):
     """
-    Original JARVIS scoring (restored). Only addition: block trades against 4h trend
-    so shorts do not pile up in bull periods (289 sell / 13 buy bug).
+    JARVIS scoring with adaptive regime adjustments.
+    In Ranging/Volatile regimes, trend-following filters are bypassed to allow trading range swings.
+    In Trending regimes, strict 4H trend-following is enforced.
     """
     tuned = tuned_params or {}
 
@@ -67,6 +68,7 @@ def generate(df, trend_df, ml, tuned_params=None):
         score += sig_val(rsi_sig) * 1.0
 
     else:
+        # Ranging regime: trade mean reversion
         if current_price > session_high:
             score -= 1.5
         elif current_price < session_low:
@@ -76,6 +78,7 @@ def generate(df, trend_df, ml, tuned_params=None):
         score += sig_val(rsi_sig) * 2.0
         score += sig_val(sma_sig) * 0.5
 
+    # Adaptive ML thresholds
     if regime == "trending":
         ml_threshold_long = float(tuned.get("ml_conf_long_trending", 0.58))
         ml_threshold_short = float(tuned.get("ml_conf_short_trending", 0.42))
@@ -83,8 +86,9 @@ def generate(df, trend_df, ml, tuned_params=None):
         ml_threshold_long = float(tuned.get("ml_conf_long_volatile", 0.60))
         ml_threshold_short = float(tuned.get("ml_conf_short_volatile", 0.40))
     else:
-        ml_threshold_long = float(tuned.get("ml_conf_long_ranging", 0.60))
-        ml_threshold_short = float(tuned.get("ml_conf_short_ranging", 0.40))
+        # Ranging: slightly lower thresholds to adapt to lower volatility ranging markets
+        ml_threshold_long = float(tuned.get("ml_conf_long_ranging", 0.55))
+        ml_threshold_short = float(tuned.get("ml_conf_short_ranging", 0.45))
 
     if ml_prob >= ml_threshold_long:
         score += 2.0
@@ -105,12 +109,34 @@ def generate(df, trend_df, ml, tuned_params=None):
     elif score <= -threshold:
         signal = "SELL"
     else:
-        diag = f"SCORE:{score}|POS:{range_pos:.2f}|ML:{ml_prob:.2f}|{regime}"
-        return "HOLD", diag, 0
+        signal = "HOLD"
 
-    if signal == "BUY" and not market_bullish:
-        return "HOLD", f"FILTER:4H_BEAR|{regime}", 0
-    if signal == "SELL" and market_bullish:
-        return "HOLD", f"FILTER:4H_BULL|{regime}", 0
+    details = {
+        "regime": regime,
+        "score": round(score, 2),
+        "threshold": threshold,
+        "ml_prob": round(ml_prob, 4),
+        "rsi": round(float(df["rsi"].iloc[-1]), 2) if "rsi" in df else None,
+        "rsi_sig": rsi_sig,
+        "sma_sig": sma_sig,
+        "bb_sig": bb_sig,
+        "market_bullish": bool(market_bullish),
+        "blocked_by": None
+    }
 
-    return signal, f"SCORE:{score}|{regime.upper()}", 180
+    if signal == "HOLD":
+        diag = f"SCORE:{score:.1f}|POS:{range_pos:.2f}|ML:{ml_prob:.2f}|{regime}"
+        details["blocked_by"] = "INSUFFICIENT_SCORE"
+        return "HOLD", diag, details
+
+    # Strict trend filter applied to all regimes if enabled
+    trend_guard_enabled = tuned.get("trend_guard_enabled", True)
+    if trend_guard_enabled:
+        if signal == "BUY" and not market_bullish:
+            details["blocked_by"] = "4H_BEAR_TREND_GUARD"
+            return "HOLD", f"FILTER:4H_BEAR|{regime}", details
+        if signal == "SELL" and market_bullish:
+            details["blocked_by"] = "4H_BULL_TREND_GUARD"
+            return "HOLD", f"FILTER:4H_BULL|{regime}", details
+
+    return signal, f"SCORE:{score:.1f}|{regime.upper()}", details

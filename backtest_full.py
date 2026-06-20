@@ -131,7 +131,7 @@ def run_backtest_symbol(symbol: str, df_5m, df_1h, df_1d, ml_agent, tuned_params
     atr_norm_series = atr_series / (close_5m + 1e-9)
 
     # Precompute regimes
-    regimes = np.where(slope_norm_series.abs() > 0.0002, "trending",
+    regimes = np.where(slope_norm_series.abs() > 0.0006, "trending",
               np.where(atr_norm_series > 0.005, "volatile", "ranging"))
 
     # Session lookbacks
@@ -384,8 +384,8 @@ def run_backtest_symbol(symbol: str, df_5m, df_1h, df_1d, ml_agent, tuned_params
             ml_threshold_long = float(tuned_params.get("ml_conf_long_volatile", 0.60))
             ml_threshold_short = float(tuned_params.get("ml_conf_short_volatile", 0.40))
         else:
-            ml_threshold_long = float(tuned_params.get("ml_conf_long_ranging", 0.60))
-            ml_threshold_short = float(tuned_params.get("ml_conf_short_ranging", 0.40))
+            ml_threshold_long = float(tuned_params.get("ml_conf_long_ranging", 0.55))
+            ml_threshold_short = float(tuned_params.get("ml_conf_short_ranging", 0.45))
 
         if ml_prob >= ml_threshold_long:
             score += 2.0
@@ -409,14 +409,16 @@ def run_backtest_symbol(symbol: str, df_5m, df_1h, df_1d, ml_agent, tuned_params
         else:
             continue
 
-        if signal == "SELL" and not ALLOW_SHORTS:
+        if signal == "SELL" and (not ALLOW_SHORTS or symbol != "BTC/USDT"):
             continue
+
+        # Strict trend filter applied to all regimes
         if signal == "BUY" and not market_bullish:
             continue
         if signal == "SELL" and market_bullish:
             continue
 
-        # 3. Macro Market Regime Guard (Daily 200 SMA)
+        # 3. Macro Market Regime Guard (Daily 200 SMA) - Applied to all regimes
         if DAILY_200SMA_GUARD:
             idx_1d = daily_indices[i]
             daily_sma = float(sma200_1d.iloc[idx_1d])

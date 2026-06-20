@@ -1,0 +1,1 @@
+{"BTC/USDT": {"timestamp": "19:11:45", "status": "HOLD", "blocked_by": "DATA_FETCH_ERROR", "regime": "monitoring", "score": 0.0, "threshold": 2.5}, "ETH/USDT": {"timestamp": "19:11:57", "status": "HOLD", "blocked_by": "DATA_FETCH_ERROR", "regime": "monitoring", "score": 0.0, "threshold": 2.5}}

@@ -24,7 +24,7 @@ def detect_market_regime(df, trend_df):
     except Exception:
         atr_norm = 0.002
 
-    if abs(slope_norm) > 0.0002:
+    if abs(slope_norm) > 0.0006:
         return "trending"
     elif atr_norm > 0.005:
         return "volatile"
@@ -37,7 +37,7 @@ def get_regime_params(regime):
         return {
             "breakout_lookback": 12,
             "volume_multiplier": 1.1,
-            "score_threshold": 3.0,
+            "score_threshold": 2.5,
             "sl_atr_mult": 2.0,
             "rr_ratio": 2.5,
         }
@@ -45,7 +45,7 @@ def get_regime_params(regime):
         return {
             "breakout_lookback": 20,
             "volume_multiplier": 1.5,
-            "score_threshold": 3.0,
+            "score_threshold": 99.0,
             "sl_atr_mult": 3.0,
             "rr_ratio": 1.5,
         }
@@ -53,8 +53,8 @@ def get_regime_params(regime):
         return {
             "breakout_lookback": 8,
             "volume_multiplier": 0.9,
-            "score_threshold": 2.5,
-            "sl_atr_mult": 1.5,
+            "score_threshold": 3.5,
+            "sl_atr_mult": 2.0,
             "rr_ratio": 1.5,
         }
 
