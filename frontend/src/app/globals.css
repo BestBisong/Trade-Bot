@@ -27,10 +27,10 @@ body {
 
 /* Hide scrollbars globally across all browsers while maintaining scroll functionality */
 * {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE and Edge */
 }
 
 *::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, and Webkit browsers */
+  display: none !important; /* Chrome, Safari, and Webkit browsers */
 }
