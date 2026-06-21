@@ -9,24 +9,42 @@ class BybitBroker:
         self.paper_mode = paper_mode
         self.session_file = "session_state.json"
         
+        import aiohttp
+        
+        # Setup custom session for private exchange
+        resolver = aiohttp.ThreadedResolver()
+        connector = aiohttp.TCPConnector(resolver=resolver)
+        self.private_session = aiohttp.ClientSession(connector=connector)
+        
         # Initialize Exchange Connection
         self.exchange = ccxt.bybit({
             'apiKey': os.getenv("BYBIT_API_KEY"),
             'secret': os.getenv("BYBIT_API_SECRET"),
             'enableRateLimit': True,
-            'options': {'defaultType': 'spot'} 
+            'options': {'defaultType': 'spot'},
+            'session': self.private_session
         })
         
         if self.paper_mode:
             logging.info("BROKER | Bybit Paper Mode Active. Using Kraken for public price data feed.")
-            self.public_exchange = ccxt.kraken({'enableRateLimit': True})
+            public_connector = aiohttp.TCPConnector(resolver=aiohttp.ThreadedResolver())
+            self.public_session = aiohttp.ClientSession(connector=public_connector)
+            self.public_exchange = ccxt.kraken({
+                'enableRateLimit': True,
+                'session': self.public_session
+            })
         else:
             self.public_exchange = None
 
     async def close(self):
         await self.exchange.close()
+        if hasattr(self, 'private_session') and self.private_session:
+            await self.private_session.close()
+            
         if self.public_exchange:
             await self.public_exchange.close()
+        if hasattr(self, 'public_session') and self.public_session:
+            await self.public_session.close()
 
     def is_window_active(self):
         """Checks if current time is within session window."""

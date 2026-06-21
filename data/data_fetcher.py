@@ -1,17 +1,32 @@
 import ccxt.async_support as ccxt
 import asyncio
 import time
+import aiohttp
 from data.market_data import format_ohlcv
 from data.data_cleaner import clean
 
-# Kraken for data (US-friendly, no geo-blocking for public endpoints)
-exchange = ccxt.kraken({"enableRateLimit": True})
+# Lazily initialized to support custom session and loop context
+exchange = None
+session = None
+
+def get_exchange():
+    global exchange, session
+    if exchange is None:
+        resolver = aiohttp.ThreadedResolver()
+        connector = aiohttp.TCPConnector(resolver=resolver)
+        session = aiohttp.ClientSession(connector=connector)
+        exchange = ccxt.kraken({
+            "enableRateLimit": True,
+            "session": session
+        })
+    return exchange
 
 async def fetch(symbol, timeframe="5m", limit=100, retries=3):
     """Fetches and cleans market data asynchronously with retry logic."""
+    ex = get_exchange()
     for attempt in range(retries):
         try:
-            raw = await exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+            raw = await ex.fetch_ohlcv(symbol, timeframe, limit=limit)
             df = format_ohlcv(raw)
             return clean(df)
         except ccxt.RateLimitExceeded:
@@ -33,4 +48,10 @@ async def fetch_confluence(symbol, base_tf="5m", trend_tf="1h"):
 
 async def close_exchange():
     """Properly close the async exchange connection."""
-    await exchange.close()
+    global exchange, session
+    if exchange is not None:
+        await exchange.close()
+        exchange = None
+    if session is not None:
+        await session.close()
+        session = None

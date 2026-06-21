@@ -42,3 +42,7 @@ active_trades.json
 trade_history.json
 settings_config.json
 bot_commands.json
+
+# Node Modules
+node_modules/
+**/node_modules/
