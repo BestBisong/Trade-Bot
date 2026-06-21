@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Activity, Shield, Cpu, Clock, TerminalSquare, X, 
+  Activity, Shield, Cpu, Clock, TerminalSquare, X, Menu,
   Settings, Play, Pause, TrendingUp, TrendingDown, 
   DollarSign, Sliders, Trash2, RefreshCw, AlertTriangle, 
-  CheckCircle2, ChevronRight, HelpCircle, ArrowUpRight, ArrowDownRight
+  CheckCircle2, ChevronRight, HelpCircle, ArrowUpRight, ArrowDownRight,
+  Info, Eye, History, FileText, Layers, Wallet
 } from "lucide-react";
 
 // Helper to generate simulated volatility charts
@@ -38,10 +39,34 @@ interface BotSettings {
 
 export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
-  const [selectedCoin, setSelectedCoin] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'strategy' | 'diagnostics' | 'logs'>('overview');
+  const [modalSymbol, setModalSymbol] = useState<string | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showRiskExplanation, setShowRiskExplanation] = useState(false);
+  const [showCostExplanation, setShowCostExplanation] = useState(false);
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [activeTab]);
+  
   const [apiSaving, setApiSaving] = useState(false);
   const [apiClearSaving, setApiClearSaving] = useState(false);
   const [apiCloseSaving, setApiCloseSaving] = useState<string | null>(null);
+
+  interface Toast {
+    id: string;
+    message: string;
+    type: 'success' | 'error' | 'info';
+  }
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4500);
+  };
   
   // Real-time backend states
   const [systemState, setSystemState] = useState({
@@ -225,7 +250,6 @@ export default function Dashboard() {
 
         if (isScanCycle && currentSettings.auto_trading_enabled) {
           Object.keys(COIN_CONFIGS).forEach(symbol => {
-            // Check if position already open
             if (newActiveTrades.some(t => t.symbol === symbol)) {
               updatedDiagnostics[symbol] = {
                 regime: 'ranging',
@@ -242,14 +266,11 @@ export default function Dashboard() {
               return;
             }
 
-            // Simulate market conditions
-            // 90% of the time, simulate "ranging/choppy" (bad market), which matches current market conditions.
             const regime = Math.random() > 0.85 ? 'trending' : 'ranging';
-            const market_bullish = Math.random() > 0.6; // Bearish bias matches 4-month bad market
-            const ml_prob = 0.42 + Math.random() * 0.16; // Centers around 0.50 (low confidence)
+            const market_bullish = Math.random() > 0.6;
+            const ml_prob = 0.42 + Math.random() * 0.16;
             const rsi = 30 + Math.random() * 40;
             
-            // Build indicators
             const rsi_sig = rsi < 35 ? "BUY" : (rsi > 65 ? "SELL" : "HOLD");
             const bb_sig = rsi < 38 ? "BUY" : (rsi > 62 ? "SELL" : "HOLD");
             const sma_sig = Math.random() > 0.7 ? (market_bullish ? "BUY" : "SELL") : "HOLD";
@@ -263,7 +284,6 @@ export default function Dashboard() {
               if (sma_sig === "BUY") score += 2.0;
             }
 
-            // ML confidence booster
             const ml_long_threshold = regime === 'ranging' ? 0.55 : 0.58;
             if (ml_prob >= ml_long_threshold) score += 2.0;
             else if (ml_prob <= 0.45) score -= 2.0;
@@ -276,7 +296,6 @@ export default function Dashboard() {
             let blockedReason = null;
 
             if (signal === "BUY") {
-              // Apply Guards
               if (currentSettings.daily_200sma_guard && !market_bullish) {
                 blockedReason = "DAILY_200SMA_GUARD";
               } else if (currentSettings.trend_guard_enabled && regime === 'trending' && !market_bullish) {
@@ -307,11 +326,10 @@ export default function Dashboard() {
               blocked_by: blockedReason
             };
 
-            // If a trade passes all filters, execute it!
             if (signal !== "HOLD" && !blockedReason) {
               const entry_price = newPrices[symbol as keyof typeof newPrices];
               const qty = currentSettings.max_notional_per_trade / entry_price;
-              const sl_dist = entry_price * 0.05; // 5% sl
+              const sl_dist = entry_price * 0.05;
               const sl = signal === "BUY" ? entry_price - sl_dist : entry_price + sl_dist;
               const tp = signal === "BUY" ? entry_price + sl_dist * 2.0 : entry_price - sl_dist * 2.0;
 
@@ -334,7 +352,6 @@ export default function Dashboard() {
                 message: `OPENED | ${signal} ${symbol} | regime: ${regime.toUpperCase()} | Entry: $${entry_price.toFixed(2)} | Qty: ${qty.toFixed(4)}`
               });
             } else if (signal !== "HOLD" && blockedReason) {
-              // Log that a trade was generated but BLOCKED by a guard
               if (Math.random() > 0.4) {
                 newLogs.unshift({
                   time: new Date().toLocaleTimeString(),
@@ -345,7 +362,6 @@ export default function Dashboard() {
           });
         }
 
-        // Simulate price updates for active trades and evaluate closures
         for (let i = newActiveTrades.length - 1; i >= 0; i--) {
           const trade = newActiveTrades[i];
           const curPrice = newPrices[trade.symbol as keyof typeof newPrices];
@@ -357,14 +373,13 @@ export default function Dashboard() {
           const hitTP = isBuy ? curPrice >= trade.tp : curPrice <= trade.tp;
           const hitSL = isBuy ? curPrice <= trade.sl : curPrice >= trade.sl;
 
-          // Check partial TP in mock mode
           if (currentSettings.partial_tp_enabled && !trade.has_scaled_out) {
             const hitHalfTP = isBuy ? curPrice >= trade.half_tp : curPrice <= trade.half_tp;
             if (hitHalfTP) {
               const realizedPnl = (isBuy ? (trade.half_tp - trade.entry_price) : (trade.entry_price - trade.half_tp)) * (trade.qty * 0.5);
               newWallet += realizedPnl;
               trade.qty = trade.qty * 0.5;
-              trade.sl = trade.entry_price; // move sl to breakeven
+              trade.sl = trade.entry_price;
               trade.has_scaled_out = true;
               trade.accumulated_pnl = realizedPnl;
               newLogs.unshift({
@@ -411,6 +426,16 @@ export default function Dashboard() {
   }, [backendOnline]);
 
   const activeSettings = backendOnline ? systemState.settings : sandboxState.settings;
+  const [localSettings, setLocalSettings] = useState<BotSettings | null>(null);
+
+  useEffect(() => {
+    if (activeSettings && !localSettings) {
+      setLocalSettings(activeSettings);
+    }
+  }, [activeSettings, localSettings]);
+
+  const displayedSettings = localSettings || activeSettings;
+  const hasUnsavedChanges = !!(localSettings && JSON.stringify(localSettings) !== JSON.stringify(activeSettings));
   const activePrices = backendOnline ? systemState.prices : sandboxState.prices;
   const activeDiagnostics = backendOnline ? systemState.diagnostics : sandboxState.diagnostics;
   const activeWallet = backendOnline ? systemState.wallet : sandboxState.wallet;
@@ -418,14 +443,12 @@ export default function Dashboard() {
   const activeHistoryList = backendOnline ? history : sandboxState.history;
   const activeLogsList = backendOnline ? logs : sandboxState.logs;
 
-  // Helper to determine if a symbol went a day without trading, and explain why
   const checkNoTradeDiagnostics = () => {
     const activeSymbols = activeSettings.symbols || ["BTC/USDT", "SOL/USDT", "XRP/USDT"];
     const now = new Date();
     const twentyFourHoursAgo = now.getTime() - 24 * 60 * 60 * 1000;
     
     return activeSymbols.map(symbol => {
-      // Find the last completed trade for this symbol in history
       const tradesForSymbol = activeHistoryList.filter(h => h.symbol === symbol);
       
       let lastTradeTime: Date | null = null;
@@ -478,7 +501,6 @@ export default function Dashboard() {
     });
   };
 
-  // Handler to Save Settings
   const saveSettings = async (updatedSettings: BotSettings) => {
     if (backendOnline) {
       setApiSaving(true);
@@ -492,9 +514,13 @@ export default function Dashboard() {
         if (res.ok) {
           const data = await res.json();
           setSystemState(prev => ({ ...prev, settings: data.settings }));
+          showToast("Strategy settings saved successfully", "success");
+        } else {
+          showToast("Failed to save strategy settings", "error");
         }
       } catch (e) {
         console.error("Failed to save settings to API: ", e);
+        showToast("Network error: Failed to reach trading engine", "error");
       } finally {
         setApiSaving(false);
       }
@@ -510,10 +536,10 @@ export default function Dashboard() {
           logs: updatedLogs.slice(0, 30)
         };
       });
+      showToast("Sandbox settings updated", "info");
     }
   };
 
-  // Handler to Close Positions Manually
   const closePosition = async (symbol: string) => {
     if (backendOnline) {
       setApiCloseSaving(symbol);
@@ -525,14 +551,17 @@ export default function Dashboard() {
           body: JSON.stringify({ symbol })
         });
         if (res.ok) {
-          // Instantly fetch updated trades
           const tradesRes = await fetch(`${apiBase}/api/trades`);
           if (tradesRes.ok) {
             setActiveTrades(await tradesRes.json());
           }
+          showToast(`Manual close command executed for ${symbol}`, "success");
+        } else {
+          showToast(`Failed to close position for ${symbol}`, "error");
         }
       } catch (e) {
         console.error("Failed to close position via API: ", e);
+        showToast("Network error: Failed to close position", "error");
       } finally {
         setApiCloseSaving(null);
       }
@@ -564,10 +593,10 @@ export default function Dashboard() {
           logs: updatedLogs.slice(0, 30)
         };
       });
+      showToast(`Sandbox: Closed position for ${symbol}`, "success");
     }
   };
 
-  // Handler to Clear completed trade history
   const clearHistory = async () => {
     if (backendOnline) {
       setApiClearSaving(true);
@@ -578,9 +607,13 @@ export default function Dashboard() {
         });
         if (res.ok) {
           setHistory([]);
+          showToast("Trade history cleared successfully", "success");
+        } else {
+          showToast("Failed to clear trade history", "error");
         }
       } catch (e) {
         console.error("Failed to clear history via API: ", e);
+        showToast("Network error: Failed to clear history", "error");
       } finally {
         setApiClearSaving(false);
       }
@@ -593,156 +626,246 @@ export default function Dashboard() {
           ...prev.logs
         ].slice(0, 30)
       }));
+      showToast("Sandbox trade history cleared", "success");
     }
   };
 
   const toggleSetting = (key: keyof BotSettings) => {
+    if (!displayedSettings) return;
     const nextSettings = {
-      ...activeSettings,
-      [key]: !activeSettings[key]
+      ...displayedSettings,
+      [key]: !displayedSettings[key]
     };
-    saveSettings(nextSettings);
+    setLocalSettings(nextSettings);
   };
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!displayedSettings) return;
     const val = parseFloat(e.target.value);
     const nextSettings = {
-      ...activeSettings,
+      ...displayedSettings,
       risk_per_trade: val / 100
     };
-    saveSettings(nextSettings);
+    setLocalSettings(nextSettings);
   };
 
   const handleNotionalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!displayedSettings) return;
     const val = parseFloat(e.target.value) || 1.0;
     const nextSettings = {
-      ...activeSettings,
+      ...displayedSettings,
       max_notional_per_trade: val
     };
-    saveSettings(nextSettings);
+    setLocalSettings(nextSettings);
   };
 
   if (!mounted) return null;
 
-  // Quick Diagnostics Recommendation logic
   const getAdvisoryMessage = (symbol: string, diag: any) => {
-    if (!diag) return "Scanning market data for trade signals...";
+    if (!diag) return { type: 'info', text: "Scanning market data for trade signals..." };
     const { blocked_by, regime, score, threshold } = diag;
     
     if (!activeSettings.auto_trading_enabled) {
-      return "The auto-trading scanner is paused. Toggle it ON in the console to allow automatic scans.";
+      return { type: 'info', text: "The auto-trading scanner is paused. Toggle it ON in the console to allow automatic scans." };
     }
     
     if (blocked_by === "DAILY_200SMA_GUARD") {
-      return `⚠️ BLOCKED BY 200 DAILY SMA: The price is currently in a macro downtrend. To authorize trades in a bear market, disable the "Daily 200 SMA Guard" in the Strategy Console.`;
+      return { type: 'warning', text: `BLOCKED BY DAILY 200 SMA: The price is currently in a macro downtrend. To authorize trades in a bear market, disable the "Daily 200 SMA Guard" in the Strategy Console.` };
     }
     if (blocked_by === "4H_BEAR_TREND_GUARD" || blocked_by === "4H_BULL_TREND_GUARD") {
-      return `⚠️ BLOCKED BY 4H TREND GUARD: Trend filters are restricting trades against the 4H bias. Disable the "4H Trend Guard" in the Console to authorize entries in choppy/ranging markets.`;
+      return { type: 'warning', text: `BLOCKED BY 4H TREND GUARD: Trend filters are restricting trades against the 4H bias. Disable the "4H Trend Guard" in the Console to authorize entries in choppy/ranging markets.` };
     }
     if (blocked_by === "INSUFFICIENT_SCORE") {
-      return `ℹ️ INSUFFICIENT SCORE: Signals do not fully align. Score is ${score} (Threshold is ${threshold}). In sideways markets, consider turning off trend filters or lowering ML constraints to increase scan sensitivity.`;
+      return { type: 'info', text: `INSUFFICIENT SCORE: Signals do not fully align. Score is ${score} (Threshold is ${threshold}). In sideways markets, consider turning off trend filters or lowering ML constraints to increase scan sensitivity.` };
     }
     if (blocked_by === "SHORTS_DISABLED" && diag.sma_sig === "SELL") {
-      return `ℹ️ SELL SIGNAL DETECTED: The bot wants to open a SHORT position, but shorts are disabled. Enable "Allow Short Positions" in the Strategy Console.`;
+      return { type: 'info', text: `SELL SIGNAL DETECTED: The bot wants to open a SHORT position, but shorts are disabled. Enable "Allow Short Positions" in the Strategy Console.` };
     }
     if (blocked_by === "POSITION_ALREADY_OPEN") {
-      return `✅ POSITION OPEN: An active position is already running for this symbol. Waiting for TP/SL exit before scanning new entries.`;
+      return { type: 'success', text: `POSITION OPEN: An active position is already running for this symbol. Waiting for TP/SL exit before scanning new entries.` };
     }
     if (blocked_by === "MAX_POSITIONS_REACHED") {
-      return `⚠️ RISK SHIELD: Maximum position limit reached. Close an active trade manually or wait for execution before scanning new entries.`;
+      return { type: 'warning', text: `RISK SHIELD: Maximum position limit reached. Close an active trade manually or wait for execution before scanning new entries.` };
     }
-    return `✅ SCAN ACTIVE: Auto-trading scanner is running. Price regime is "${regime.toUpperCase()}" with score ${score}/${threshold}.`;
+    return { type: 'success', text: `SCAN ACTIVE: Auto-trading scanner is running. Price regime is "${regime.toUpperCase()}" with score ${score}/${threshold}.` };
   };
 
   return (
-    <div className="min-h-screen bg-[#030303] text-zinc-400 font-sans p-6 selection:bg-zinc-800 text-sm antialiased">
-      <div className="max-w-[1850px] mx-auto space-y-6">
-        
-        {/* HUD HEADER */}
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-zinc-900 bg-[#09090b]/20 p-5 rounded-2xl border border-zinc-900/60">
-          <div className="flex items-center gap-4">
-            <div className="relative flex items-center justify-center">
-              <span className={`absolute inline-flex h-3 w-3 rounded-full opacity-75 animate-ping ${backendOnline ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
-              <span className={`relative inline-flex rounded-full h-3 w-3 ${backendOnline ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
-            </div>
+    <div className="min-h-screen bg-black text-zinc-400 font-sans flex flex-col md:flex-row selection:bg-zinc-800 text-sm antialiased relative">
+      
+      {/* TOAST NOTIFICATION CORNER */}
+      <div className="fixed top-6 right-6 z-50 flex flex-col gap-3 max-w-sm pointer-events-none">
+        {toasts.map(t => (
+          <div 
+            key={t.id}
+            className={`
+              pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border bg-[#09090b] shadow-2xl text-[10px] font-mono uppercase tracking-wider
+              animate-in slide-in-from-top-4 duration-300
+              ${t.type === 'success' ? 'border-white text-white' : ''}
+              ${t.type === 'error' ? 'border-zinc-800 text-zinc-550' : ''}
+              ${t.type === 'info' ? 'border-zinc-950 text-zinc-400' : ''}
+            `}
+          >
+            {t.type === 'success' && <CheckCircle2 size={12} className="text-white flex-shrink-0" />}
+            {t.type === 'error' && <AlertTriangle size={12} className="text-zinc-555 flex-shrink-0" />}
+            {t.type === 'info' && <Info size={12} className="text-zinc-500 flex-shrink-0" />}
+            <span>{t.message}</span>
+            <button 
+              onClick={() => setToasts(prev => prev.filter(item => item.id !== t.id))}
+              className="ml-auto text-zinc-500 hover:text-white p-0.5 focus:outline-none"
+            >
+              <X size={10} />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* MOBILE OVERLAY BACKDROP */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 md:hidden animate-in fade-in duration-200"
+          onClick={() => setIsMobileMenuOpen(false)}
+        ></div>
+      )}
+
+      {/* SIDEBAR NAVIGATION */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-40 w-64 bg-[#09090b] border-r border-zinc-900 flex flex-col justify-between shrink-0 transform 
+        md:translate-x-0 md:static md:flex 
+        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} 
+        transition-transform duration-250 ease-in-out h-full md:h-auto
+      `}>
+        <div className="p-6">
+          {/* LOGO */}
+          <div className="flex items-center justify-between mb-8">
             <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-xl font-bold tracking-tight text-white">JARVIS</h1>
-                <span className="text-[10px] text-zinc-400 border border-zinc-800 px-2 py-0.5 rounded-full bg-zinc-900/60 font-semibold font-mono">v2.1</span>
-              </div>
-              <p className="text-xs text-zinc-500 mt-1">Multi-Regime Quant Workstation & Guard Diagnostics</p>
+              <span className="text-white font-bold tracking-widest text-base block font-mono">JARVIS</span>
+              <span className="text-[10px] text-zinc-500 font-semibold tracking-wider font-mono">QUANT WORKSTATION</span>
             </div>
+            {/* Close button visible only on mobile/tablet inside sidebar */}
+            <button 
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="md:hidden text-zinc-400 hover:text-white p-1 focus:outline-none"
+            >
+              <X size={18} />
+            </button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-6 text-zinc-400">
-            <span className="flex items-center gap-2 bg-[#09090b] border border-zinc-900 px-3.5 py-1.5 rounded-full text-xs">
-              <span className="text-zinc-500 font-medium mr-1">FEED:</span>
-              <span className={backendOnline ? "text-emerald-400 font-semibold" : "text-amber-500 font-semibold"}>
-                {backendOnline ? "LIVE API CONNECTED" : "SANDBOX SIMULATION"}
+          {/* MENU LINKS */}
+          <nav className="space-y-1">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group text-left ${activeTab === 'overview' ? 'bg-white text-black font-semibold' : 'hover:bg-zinc-900 text-zinc-400 hover:text-white'}`}
+            >
+              <Activity size={16} className={activeTab === 'overview' ? 'text-black' : 'text-zinc-500 group-hover:text-white'} />
+              <span className="text-xs uppercase tracking-wider font-medium">Overview</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('strategy')}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group text-left ${activeTab === 'strategy' ? 'bg-white text-black font-semibold' : 'hover:bg-zinc-900 text-zinc-400 hover:text-white'}`}
+            >
+              <Sliders size={16} className={activeTab === 'strategy' ? 'text-black' : 'text-zinc-500 group-hover:text-white'} />
+              <span className="text-xs uppercase tracking-wider font-medium">Strategy & Console</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('diagnostics')}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group text-left ${activeTab === 'diagnostics' ? 'bg-white text-black font-semibold' : 'hover:bg-zinc-900 text-zinc-400 hover:text-white'}`}
+            >
+              <Shield size={16} className={activeTab === 'diagnostics' ? 'text-black' : 'text-zinc-500 group-hover:text-white'} />
+              <span className="text-xs uppercase tracking-wider font-medium">Inactivity Monitor</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('logs')}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group text-left ${activeTab === 'logs' ? 'bg-white text-black font-semibold' : 'hover:bg-zinc-900 text-zinc-400 hover:text-white'}`}
+            >
+              <TerminalSquare size={16} className={activeTab === 'logs' ? 'text-black' : 'text-zinc-500 group-hover:text-white'} />
+              <span className="text-xs uppercase tracking-wider font-medium">Logs & History</span>
+            </button>
+          </nav>
+        </div>
+
+        {/* FOOTER STATE BADGE */}
+        <div className="p-6 border-t border-zinc-900/60 space-y-4">
+          <div className="flex items-center gap-2">
+            <span className={`h-2.5 w-2.5 rounded-full ${backendOnline ? 'bg-white animate-pulse' : 'bg-transparent border border-zinc-650'}`}></span>
+            <span className="text-[11px] font-mono font-semibold tracking-widest text-zinc-300">
+              {backendOnline ? 'Terminal: CONNECTED' : 'Terminal: SANDBOX'}
+            </span>
+          </div>
+
+        </div>
+      </aside>
+
+      {/* MAIN CONTENT AREA */}
+      <main className="flex-1 min-w-0 flex flex-col bg-black">
+        
+        {/* HEADER BAR */}
+        <header className="h-auto md:h-16 border-b border-zinc-900 bg-[#09090b] px-6 md:px-8 py-4 md:py-0 flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-0">
+          <div className="flex items-center justify-between w-full md:w-auto">
+            <span className="text-xs uppercase tracking-widest font-semibold text-zinc-500 font-mono">
+              Dashboard / {activeTab}
+            </span>
+            {/* Mobile hamburger menu toggle */}
+            <button 
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="md:hidden text-zinc-400 hover:text-white p-1 focus:outline-none"
+            >
+              <Menu size={20} />
+            </button>
+          </div>
+
+          {/* CAPITAL HUD */}
+          <div className="flex flex-wrap items-center gap-4 md:gap-6 w-full md:w-auto text-xs justify-between md:justify-end">
+            <div className="flex items-center gap-2">
+              <Wallet size={14} className="text-zinc-500" />
+              <span className="text-zinc-400 font-semibold uppercase tracking-wider">WALLET:</span>
+              <span className="text-white font-bold font-mono">
+                ${activeWallet.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-            </span>
-            <span className="flex items-center gap-2 text-xs text-zinc-500">
-              <Clock size={14} className="text-zinc-600" /> <span className="font-mono">UTC: {new Date().toISOString().split('T')[1].split('.')[0]}</span>
-            </span>
-            <span className="flex items-center gap-2 text-xs text-zinc-500">
-              <Activity size={14} className="text-zinc-600" /> Latency: <span className="font-mono">{backendOnline ? '4ms' : '0ms'}</span>
-            </span>
-            <span className="flex items-center gap-2 text-xs text-zinc-500">
-              <Cpu size={14} className="text-zinc-600" /> CPU: <span className="font-mono">{backendOnline ? '6%' : '1%'}</span>
-            </span>
+            </div>
+            {backendOnline && (
+              <div className="flex items-center gap-2 border-l border-zinc-900 pl-6">
+                <TrendingUp size={14} className="text-zinc-555" />
+                <span className="text-zinc-400 font-semibold uppercase tracking-wider">PnL Today:</span>
+                <span className={`font-mono font-bold ${systemState.risk.daily_pnl_pct >= 0 ? 'text-white' : 'text-zinc-500'}`}>
+                  {systemState.risk.daily_pnl_pct >= 0 ? '+' : ''}{systemState.risk.daily_pnl_pct.toFixed(2)}%
+                </span>
+              </div>
+            )}
+            <div className="flex items-center gap-2 border-l border-zinc-900 pl-6 text-zinc-500">
+              <Clock size={14} />
+              <span className="font-mono text-[11px]">{new Date().toISOString().split('T')[1].split('.')[0]} UTC</span>
+            </div>
           </div>
         </header>
 
-        {/* METRICS PANEL */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Metric 
-            title="TOTAL CAPITAL" 
-            value={`$${activeWallet.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
-            sub={backendOnline ? `${systemState.risk.daily_pnl_pct >= 0 ? '+' : ''}${systemState.risk.daily_pnl_pct.toFixed(2)}% TODAY` : "VIRTUAL DEMO WALLET"}
-            subColor={backendOnline && systemState.risk.daily_pnl_pct >= 0 ? "text-emerald-400" : (backendOnline ? "text-rose-400" : "text-zinc-500")}
-          />
-          <Metric 
-            title="SYSTEM SCAN STATUS" 
-            value={activeSettings.auto_trading_enabled ? "AUTO-SCANNING" : "SCANNER PAUSED"} 
-            sub={activeSettings.auto_trading_enabled ? `CYCLE: EVERY 10s | LAST: ${lastScanTime || 'NEVER'}` : "AUTOPILOT IN STANDBY"}
-            subColor={activeSettings.auto_trading_enabled ? "text-emerald-400" : "text-amber-500"}
-          />
-          <Metric 
-            title="PORTFOLIO TRADES" 
-            value={backendOnline ? `${systemState.risk.wins_today}W - ${systemState.risk.losses_today}L` : `${activeHistoryList.filter(h => h.pnl > 0).length}W - ${activeHistoryList.filter(h => h.pnl <= 0).length}L`} 
-            sub={backendOnline ? `WIN RATE: ${systemState.risk.win_rate.toFixed(1)}%` : `WIN RATE: ${activeHistoryList.length > 0 ? ((activeHistoryList.filter(h => h.pnl > 0).length / activeHistoryList.length) * 100).toFixed(1) : '0.0'}%`}
-            subColor="text-zinc-500"
-          />
-          <Metric 
-            title="ACTIVE RISK SHIELD" 
-            value={backendOnline && systemState.risk.cooldown_until ? "COOLDOWN SHIELD" : "GUARD NORMAL"} 
-            sub={backendOnline && systemState.risk.cooldown_until ? `COOLDOWN ACTIVE` : "STABLE REGIME TARGETING"}
-            subColor={backendOnline && systemState.risk.cooldown_until ? "text-rose-500" : "text-emerald-400"}
-          />
-        </div>
-
-        {/* WORKSTATION GRID */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* CONTENT VIEW PORT */}
+        <div className="flex-1 p-4 md:p-8 overflow-y-auto max-w-[1500px]">
           
-          {/* LEFT SECTION - SCANNER DIAGNOSTICS & ADVISORY (2/3 width) */}
-          <div className="lg:col-span-2 space-y-6">
-            
-            {/* COIN SCANNERS & LIVE INDICATORS */}
-            <div className="bg-[#09090b]/10 border border-zinc-900 rounded-2xl p-5 space-y-5 shadow-sm">
-              <div className="flex justify-between items-center pb-3 border-b border-zinc-900/60">
-                <div className="flex items-center gap-2">
-                  <TerminalSquare size={16} className="text-zinc-500" />
-                  <span className="font-semibold text-sm text-zinc-200 tracking-tight">Market Scanners & Guard Verdicts</span>
+          {/* TAB 1: OVERVIEW */}
+          {activeTab === 'overview' && (
+            <div className="space-y-8">
+              
+              {/* HEADING AND METRICS */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-white tracking-tight uppercase">Market Overview</h2>
+                  <p className="text-xs text-zinc-500 mt-1 uppercase tracking-wider">Click any scanner card to inspect technical indicators and guards</p>
                 </div>
-                <span className="text-xs text-zinc-500 flex items-center gap-2 font-medium">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  Active diagnostics
-                </span>
+
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                  <span className="text-xs bg-zinc-900 text-zinc-400 px-3 py-1.5 rounded-full border border-zinc-800 font-semibold font-mono">
+                    ACTIVE POSITIONS: {activeTradesList.length}
+                  </span>
+                  <span className="text-xs bg-zinc-900 text-zinc-400 px-3 py-1.5 rounded-full border border-zinc-800 font-semibold font-mono">
+                    WIN RATE: {backendOnline ? `${systemState.risk.win_rate.toFixed(1)}%` : `${activeHistoryList.length > 0 ? ((activeHistoryList.filter(h => h.pnl > 0).length / activeHistoryList.length) * 100).toFixed(1) : '0.0'}%`}
+                  </span>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* LIVE SCANNER CARDS */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {Object.keys(COIN_CONFIGS).map((symbol) => {
-                  const isSelected = selectedCoin === symbol;
                   const livePrice = activePrices?.[symbol] || COIN_CONFIGS[symbol].price;
                   const diag = activeDiagnostics?.[symbol];
                   const regime = diag?.regime || "ranging";
@@ -754,512 +877,572 @@ export default function Dashboard() {
                   return (
                     <div 
                       key={symbol}
-                      onClick={() => setSelectedCoin(isSelected ? null : symbol)}
-                      className={`bg-zinc-900/10 border rounded-2xl p-5 relative flex flex-col transition-all duration-200 cursor-pointer select-none group hover:bg-zinc-900/20 ${isSelected ? 'border-zinc-500 bg-zinc-900/20' : 'border-zinc-900/80'}`}
+                      onClick={() => setModalSymbol(symbol)}
+                      className="bg-[#09090b] border border-zinc-900 rounded-2xl p-6 flex flex-col justify-between transition-all duration-200 hover:border-white hover:bg-zinc-950/60 cursor-pointer select-none relative group h-48 shadow-sm"
                     >
-                      {/* Badge / Header */}
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <span className="text-white font-bold text-sm tracking-tight block">{symbol}</span>
-                          <span className={`text-[10px] font-semibold mt-1 inline-flex items-center gap-1 uppercase tracking-wider ${
-                            regime === "trending" ? "text-emerald-400" : 
-                            (regime === "volatile" ? "text-rose-400" : "text-amber-500")
-                          }`}>
-                            <span className="h-1 w-1 rounded-full bg-current"></span>
-                            {regime} regime
-                          </span>
+                      <div>
+                        {/* Title and live price */}
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="text-white font-bold text-base tracking-wider block font-mono">{symbol}</span>
+                            <span className="text-[10px] font-mono mt-1 inline-flex items-center gap-1.5 text-zinc-400 uppercase tracking-widest font-semibold">
+                              <span className="h-1 w-1 rounded-full bg-zinc-400"></span>
+                              {regime} regime
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[9px] text-zinc-500 block font-mono tracking-widest uppercase">PRICE</span>
+                            <span className="text-lg text-white font-semibold font-mono tracking-tight">
+                              ${livePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <span className="text-[10px] text-zinc-500 block">LIVE VALUE</span>
-                          <span className="text-base text-white font-semibold font-mono tracking-tight">
-                            ${livePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
+
+                        {/* Sparkline visualization */}
+                        <div className="h-10 opacity-30 my-4">
+                          <Sparkline data={sparklines[symbol as keyof typeof sparklines]} />
                         </div>
                       </div>
 
-                      {/* Sparkline background */}
-                      <div className="h-10 opacity-30 my-3">
-                        <Sparkline data={sparklines[symbol as keyof typeof sparklines]} />
-                      </div>
-
-                      {/* Guard status summary */}
-                      <div className="mt-auto pt-3 border-t border-zinc-900/85 flex justify-between items-center">
+                      {/* Diagnostic summary footer */}
+                      <div className="pt-3 border-t border-zinc-900 flex justify-between items-center text-xs">
                         <div className="flex items-center gap-2">
-                          <span className={`h-2 w-2 rounded-full ${isBlocked ? 'bg-rose-500' : (isOpened ? 'bg-emerald-500' : 'bg-amber-500')}`}></span>
-                          <span className={`text-[11px] font-medium ${isBlocked ? 'text-rose-400' : (isOpened ? 'text-emerald-400' : 'text-amber-400')}`}>
-                            {isBlocked ? "Blocked by Guard" : (isOpened ? "Active Position" : "Pending Alignment")}
+                          <span className={`h-2 w-2 rounded-full ${isBlocked ? 'bg-transparent border border-white' : (isOpened ? 'bg-white' : 'bg-zinc-800')}`}></span>
+                          <span className="font-mono tracking-wider text-zinc-400 text-[10px]">
+                            {isBlocked ? "BLOCKED BY GUARD" : (isOpened ? "ACTIVE POSITION" : "PENDING ALIGNMENT")}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1.5 text-[11px] text-zinc-500">
-                          <span>Verdict:</span>
-                          <span className="font-semibold text-zinc-300 font-mono text-[10px] uppercase">{(diag?.blocked_by || "HOLD").replace("_", " ")}</span>
-                        </div>
+                        <span className="text-[10px] font-mono text-zinc-500 hover:text-white transition-colors flex items-center gap-1 uppercase font-semibold">
+                          Inspect <Eye size={12} />
+                        </span>
                       </div>
                     </div>
                   );
                 })}
               </div>
-            </div>
 
-            {/* ADVISORY & EXPLAINABILITY DRAWER */}
-            <div className="bg-[#09090b]/10 border border-zinc-900 rounded-2xl p-5 space-y-4 shadow-sm">
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-900/60">
-                <div className="flex items-center gap-2">
-                  <HelpCircle size={16} className="text-zinc-500" />
-                  <span className="font-semibold text-sm text-zinc-200 tracking-tight">Diagnostics & Market Advisory</span>
-                </div>
-                <span className="text-xs text-zinc-500 font-medium">Real-time status</span>
-              </div>
-
-              <div className="space-y-4">
-                {Object.keys(COIN_CONFIGS).map(symbol => {
-                  const diag = activeDiagnostics?.[symbol];
-                  const regime = diag?.regime || "ranging";
-                  const score = diag?.score || 0.0;
-                  const threshold = diag?.threshold || 2.5;
-                  const mlConf = diag?.ml_prob ? (diag.ml_prob * 100).toFixed(1) : "50.0";
-                  const rsi = diag?.rsi ? diag.rsi.toFixed(1) : "50.0";
-                  
-                  return (
-                    <div key={symbol} className="bg-zinc-900/10 border border-zinc-900/80 rounded-xl p-5 space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="font-semibold text-sm text-zinc-200">{symbol} Status</span>
-                        <div className="flex items-center gap-4 text-xs text-zinc-500 font-medium">
-                          <span>Regime: <strong className="text-zinc-300 font-mono text-[11px]">{regime.toUpperCase()}</strong></span>
-                          <span>Score: <strong className="text-zinc-300 font-mono text-[11px]">{score}/{threshold}</strong></span>
-                          <span>Confidence: <strong className="text-zinc-300 font-mono text-[11px]">{mlConf}%</strong></span>
-                        </div>
-                      </div>
-
-                      {/* Technical alignment metrics */}
-                      <div className="grid grid-cols-4 gap-3 text-xs bg-zinc-950/20 p-3 rounded-lg border border-zinc-900">
-                        <div className="text-center border-r border-zinc-900/60">
-                          <span className="text-zinc-500 block text-[10px] uppercase tracking-wider mb-0.5">RSI ({rsi})</span>
-                          <span className={`font-semibold font-mono text-[11px] ${diag?.rsi_sig === "BUY" ? "text-emerald-400" : (diag?.rsi_sig === "SELL" ? "text-rose-400" : "text-zinc-400")}`}>
-                            {diag?.rsi_sig || "HOLD"}
-                          </span>
-                        </div>
-                        <div className="text-center border-r border-zinc-900/60">
-                          <span className="text-zinc-500 block text-[10px] uppercase tracking-wider mb-0.5">Bollinger</span>
-                          <span className={`font-semibold font-mono text-[11px] ${diag?.bb_sig === "BUY" ? "text-emerald-400" : (diag?.bb_sig === "SELL" ? "text-rose-400" : "text-zinc-400")}`}>
-                            {diag?.bb_sig || "HOLD"}
-                          </span>
-                        </div>
-                        <div className="text-center border-r border-zinc-900/60">
-                          <span className="text-zinc-500 block text-[10px] uppercase tracking-wider mb-0.5">MACD / SMA</span>
-                          <span className={`font-semibold font-mono text-[11px] ${diag?.sma_sig === "BUY" ? "text-emerald-400" : (diag?.sma_sig === "SELL" ? "text-rose-400" : "text-zinc-400")}`}>
-                            {diag?.sma_sig || "HOLD"}
-                          </span>
-                        </div>
-                        <div className="text-center">
-                          <span className="text-zinc-500 block text-[10px] uppercase tracking-wider mb-0.5">4H Bias</span>
-                          <span className={`font-semibold font-mono text-[11px] ${diag?.market_bullish ? "text-emerald-400" : "text-rose-400"}`}>
-                            {diag?.market_bullish ? "BULLISH" : "BEARISH"}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Diagnostic Explainer */}
-                      <div className={`p-4 rounded-xl flex items-start gap-3 border ${
-                        diag?.blocked_by && diag.blocked_by !== "POSITION_ALREADY_OPEN" 
-                          ? "bg-rose-950/5 border-rose-900/25 text-rose-300/90" 
-                          : (diag?.blocked_by === "POSITION_ALREADY_OPEN" 
-                            ? "bg-emerald-950/5 border-emerald-900/25 text-emerald-300/90" 
-                            : "bg-zinc-900/5 border-zinc-900 text-zinc-400")
-                      }`}>
-                        <div className="mt-0.5">
-                          {diag?.blocked_by && diag.blocked_by !== "POSITION_ALREADY_OPEN" ? (
-                            <AlertTriangle size={15} className="text-rose-400 flex-none" />
-                          ) : (diag?.blocked_by === "POSITION_ALREADY_OPEN" ? (
-                            <CheckCircle2 size={15} className="text-emerald-400 flex-none" />
-                          ) : (
-                            <Activity size={15} className="text-zinc-500 flex-none" />
-                          ))}
-                        </div>
-                        <div className="leading-relaxed text-[12px]">
-                          {getAdvisoryMessage(symbol, diag)}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* NO-TRADE 24H+ DIAGNOSTICS CARD */}
-            <div className="bg-[#09090b]/10 border border-zinc-900 rounded-2xl p-5 space-y-4 shadow-sm">
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-900/60">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle size={16} className="text-zinc-500" />
-                  <span className="font-semibold text-sm text-zinc-200 tracking-tight">System Inactivity Monitor</span>
-                </div>
-                <span className="text-xs text-zinc-500 font-medium">Inactivity alerts</span>
-              </div>
-              
-              <div className="space-y-3">
-                {checkNoTradeDiagnostics().map(({ symbol, noTradeFor24h, statusMessage, reason }) => (
-                  <div key={symbol} className={`p-4 rounded-xl border flex flex-col gap-2 transition-colors ${
-                    noTradeFor24h 
-                      ? "bg-amber-950/5 border-amber-900/25 text-amber-300/95" 
-                      : "bg-zinc-900/10 border-zinc-900/80 text-zinc-400"
-                  }`}>
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold text-zinc-200">{symbol}</span>
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase ${
-                        noTradeFor24h ? "bg-amber-950/40 text-amber-400 border border-amber-900/30 animate-pulse" : "bg-zinc-900 text-zinc-500"
-                      }`}>
-                        {noTradeFor24h ? "24h+ Inactive" : "Active"}
-                      </span>
-                    </div>
-                    <div className="text-xs text-zinc-400 flex items-center gap-1.5">
-                      <span>{statusMessage}</span>
-                    </div>
-                    <div className="text-xs leading-relaxed pl-3 border-l border-zinc-800 text-zinc-500">
-                      <strong className="text-zinc-400 font-medium">Diagnosis:</strong> {reason}
-                    </div>
+              {/* ACTIVE RUNNING POSITIONS TABLE */}
+              <div className="bg-[#09090b] border border-zinc-900 rounded-2xl p-6 shadow-sm">
+                <div className="flex items-center justify-between pb-4 border-b border-zinc-900 mb-6">
+                  <div className="flex items-center gap-2">
+                    <Shield size={16} className="text-zinc-500" />
+                    <h3 className="font-bold text-sm text-zinc-200 tracking-wider uppercase">Active Positions</h3>
                   </div>
-                ))}
+                  <span className="text-[10px] text-zinc-500 font-mono font-semibold uppercase bg-zinc-900 border border-zinc-800 px-3 py-1 rounded-full">
+                    OPEN TRADES: {activeTradesList.length}
+                  </span>
+                </div>
+
+                {activeTradesList.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center text-zinc-550 text-xs py-16 space-y-2 border border-dashed border-zinc-900 rounded-2xl bg-zinc-950/20">
+                    <span className="font-mono text-zinc-550">[ NO ACTIVE POSITIONS ]</span>
+                    <span className="text-[10px] text-zinc-600 uppercase tracking-widest text-center max-w-md mt-1">
+                      The execution engine is scanning. Trades will auto-enter when confluence signals align.
+                    </span>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="text-zinc-500 border-b border-zinc-900 pb-3 font-mono uppercase tracking-wider text-[10px]">
+                          <th className="pb-3 font-semibold">Symbol</th>
+                          <th className="pb-3 font-semibold">Side</th>
+                          <th className="pb-3 font-semibold">Entry Price</th>
+                          <th className="pb-3 font-semibold">Current Price</th>
+                          <th className="pb-3 font-semibold">Position Size</th>
+                          <th className="pb-3 font-semibold">SL / TP Target</th>
+                          <th className="pb-3 text-right font-semibold">Unrealized P&L</th>
+                          <th className="pb-3 text-right font-semibold">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-900">
+                        {activeTradesList.map((t, index) => {
+                          const entry = parseFloat(t.entry_price) || 0;
+                          const currentPrice = parseFloat(t.current_price) || activePrices?.[t.symbol] || entry;
+                          const qty = parseFloat(t.qty) || 0;
+                          
+                          const pnlVal = t.side === 'buy' 
+                            ? (currentPrice - entry) * qty 
+                            : (entry - currentPrice) * qty;
+                          const pnlPct = entry > 0 ? (pnlVal / (entry * qty)) * 100 : 0;
+                          const isProfit = pnlVal >= 0;
+
+                          return (
+                            <tr key={index} className="hover:bg-zinc-950/40 transition-colors duration-150">
+                              <td className="py-4 font-bold text-white font-mono">{t.symbol}</td>
+                              <td className="py-4">
+                                <span className={`font-bold font-mono text-[10px] tracking-wider ${t.side === 'buy' ? 'text-white' : 'text-zinc-400'}`}>
+                                  {t.side === 'buy' ? 'LONG' : 'SHORT'}
+                                </span>
+                              </td>
+                              <td className="py-4 font-mono">${entry.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
+                              <td className="py-4 font-mono text-zinc-500">${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
+                              <td className="py-4 font-mono">
+                                <span className="block text-zinc-300">{qty.toFixed(5)}</span>
+                                <span className="text-[10px] text-zinc-550">${(qty * entry).toFixed(2)} USDT</span>
+                              </td>
+                              <td className="py-4 font-mono text-[10px] text-zinc-500 space-y-0.5">
+                                <div className="text-zinc-500">SL: ${parseFloat(t.sl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                                <div className="text-zinc-300">TP: ${parseFloat(t.tp).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                              </td>
+                              <td className={`py-4 text-right font-mono font-semibold ${isProfit ? 'text-white' : 'text-zinc-550'}`}>
+                                <div className="text-sm">{isProfit ? '+$' : '-$'}{Math.abs(pnlVal).toFixed(2)}</div>
+                                <div className="text-[10px]">{isProfit ? '+' : ''}{pnlPct.toFixed(2)}%</div>
+                              </td>
+                              <td className="py-4 text-right">
+                                <button
+                                  onClick={() => closePosition(t.symbol)}
+                                  disabled={apiCloseSaving === t.symbol}
+                                  className="bg-transparent hover:bg-white text-white hover:text-black border border-zinc-800 hover:border-white px-3 py-1.5 rounded-lg transition-all duration-200 cursor-pointer disabled:opacity-50 text-[10px] font-semibold uppercase tracking-wider font-mono"
+                                >
+                                  {apiCloseSaving === t.symbol ? (
+                                    <RefreshCw size={12} className="animate-spin" />
+                                  ) : (
+                                    "CLOSE"
+                                  )}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
+
             </div>
+          )}
 
-          </div>
+          {/* TAB 2: STRATEGY & RULES */}
+          {activeTab === 'strategy' && (
+            <div className="space-y-8 max-w-4xl">
+              <div>
+                <h2 className="text-xl font-bold text-white tracking-tight uppercase">Strategy Adjustments & Risk Guards</h2>
+                <p className="text-xs text-zinc-550 mt-1 uppercase tracking-wider">Fine-tune execution parameters and toggle active machine learning shields</p>
+              </div>
 
-          {/* RIGHT SECTION - STRATEGY OPTIMIZATION CONSOLE (1/3 width) */}
-          <div className="bg-[#09090b]/10 border border-zinc-900 rounded-2xl p-5 shadow-sm space-y-5">
-            <div className="flex items-center gap-2 pb-3 border-b border-zinc-900/60">
-              <Sliders size={16} className="text-zinc-500" />
-              <span className="font-semibold text-sm text-zinc-200 tracking-tight">Auto-Trading Console</span>
-            </div>
-
-            <p className="text-xs text-zinc-500 leading-relaxed">
-              Configure target strategy settings, adjust mathematical constraints, and configure the real-time execution engine.
-            </p>
-
-            <div className="space-y-5 pt-2">
-              
-              {/* TOGGLES */}
-              <div className="space-y-3">
-                <ConsoleToggle 
-                  label="Scanner Auto-Trading" 
-                  description="Toggle the automatic market scanner loop"
-                  active={activeSettings.auto_trading_enabled}
-                  onChange={() => toggleSetting("auto_trading_enabled")}
-                />
+              <div className="bg-[#09090b] border border-zinc-900 rounded-2xl p-6 space-y-6">
                 
-                <ConsoleToggle 
-                  label="Daily 200 SMA Guard" 
-                  description="Restricts buys below daily 200 SMA (Bear Protection)"
-                  active={activeSettings.daily_200sma_guard}
-                  onChange={() => toggleSetting("daily_200sma_guard")}
-                  isGuard={true}
-                />
-
-                <ConsoleToggle 
-                  label="4H Trend Guard" 
-                  description="Restricts counter-trend entries based on 4H MACD"
-                  active={activeSettings.trend_guard_enabled}
-                  onChange={() => toggleSetting("trend_guard_enabled")}
-                  isGuard={true}
-                />
-
-                <ConsoleToggle 
-                  label="Allow Short Positions" 
-                  description="Allows opening short positions in bearish trends"
-                  active={activeSettings.allow_shorts}
-                  onChange={() => toggleSetting("allow_shorts")}
-                />
-
-                <ConsoleToggle 
-                  label="Trailing ATR Stop Loss" 
-                  description="Dynamically raises stop loss using 3x rolling ATR"
-                  active={activeSettings.trailing_stop_enabled}
-                  onChange={() => toggleSetting("trailing_stop_enabled")}
-                />
-
-                <ConsoleToggle 
-                  label="Partial Profit Scale-out" 
-                  description="Locks 50% profit at 1:1 RR and moves SL to breakeven"
-                  active={activeSettings.partial_tp_enabled}
-                  onChange={() => toggleSetting("partial_tp_enabled")}
-                />
-
-                <ConsoleToggle 
-                  label="Dynamic ML Risk Sizing" 
-                  description="Sizes risk (3% - 6.5%) based on brain confidence"
-                  active={activeSettings.dynamic_ml_risk}
-                  onChange={() => toggleSetting("dynamic_ml_risk")}
-                />
-              </div>
-
-              {/* SLIDERS & NUMBERS */}
-              <div className="space-y-4 pt-4 border-t border-zinc-900">
-                <div>
-                  <div className="flex justify-between text-xs mb-1.5">
-                    <span className="text-zinc-400 font-medium">Flat Risk Per Trade</span>
-                    <span className="text-white font-semibold font-mono">{(activeSettings.risk_per_trade * 100).toFixed(1)}%</span>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="1.0" 
-                    max="10.0" 
-                    step="0.5"
-                    value={activeSettings.risk_per_trade * 100}
-                    onChange={handleSliderChange}
-                    className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-white"
+                {/* SETTINGS GRID */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <ConsoleToggle 
+                    label="Scanner Auto-Trading" 
+                    description="Toggle the automatic market scanner loop"
+                    active={displayedSettings.auto_trading_enabled}
+                    onChange={() => toggleSetting("auto_trading_enabled")}
+                    explanation="Turns on the bot's autopilot scanner. When active, it constantly watches market prices and places trades automatically based on your strategy. Turn it off to stop all automated trades."
                   />
-                  <span className="text-[11px] text-zinc-500 block mt-1">Budget percentage exposed per SL distance</span>
-                </div>
-
-                <div>
-                  <div className="flex justify-between text-xs mb-1.5">
-                    <span className="text-zinc-400 font-medium">Max Position Size Limit</span>
-                    <span className="text-white font-semibold font-mono">${activeSettings.max_notional_per_trade.toFixed(2)} USDT</span>
-                  </div>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-3 text-zinc-500 font-mono">$</span>
-                    <input 
-                      type="number" 
-                      min="1.0" 
-                      max="10.0" 
-                      value={activeSettings.max_notional_per_trade}
-                      onChange={handleNotionalChange}
-                      className="w-full bg-[#09090b]/40 border border-zinc-900 rounded-xl px-7 py-2 focus:border-zinc-700 focus:outline-none text-white text-xs font-mono"
-                    />
-                  </div>
-                  <span className="text-[11px] text-zinc-500 block mt-1">Absolute maximum cost allowed per simulated order</span>
-                </div>
-              </div>
-
-              {/* SAVE / UPDATE BUTTON */}
-              {backendOnline && (
-                <button 
-                  onClick={() => saveSettings(activeSettings)}
-                  disabled={apiSaving}
-                  className="w-full mt-2 bg-white hover:bg-zinc-200 text-zinc-950 font-semibold py-2 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 text-xs shadow-sm"
-                >
-                  {apiSaving ? (
-                    <>
-                      <RefreshCw size={14} className="animate-spin" /> Saving Settings...
-                    </>
-                  ) : (
-                    "Save Strategy Adjustments"
-                  )}
-                </button>
-              )}
-
-              {!backendOnline && (
-                <div className="p-3 border border-dashed border-amber-900/30 bg-amber-950/5 rounded-xl text-amber-500/80 text-[11px] text-center leading-relaxed">
-                  🔧 Running in local Sandbox simulation. All settings hot-reload immediately!
-                </div>
-              )}
-
-            </div>
-          </div>
-
-        </div>
-
-        {/* POSITIONS & HISTORIES */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* ACTIVE POSITIONS TABLE (2/3 width) */}
-          <div className="lg:col-span-2 bg-[#09090b]/10 border border-zinc-900 rounded-2xl p-5 shadow-sm flex flex-col min-h-[300px]">
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-900/60">
-              <div className="flex items-center gap-2">
-                <Shield size={16} className="text-zinc-500" />
-                <span className="font-semibold text-sm text-zinc-200 tracking-tight">Active Running Trades</span>
-              </div>
-              <span className="text-zinc-400 bg-zinc-900/60 px-2.5 py-0.5 rounded-full border border-zinc-900 text-[11px] font-mono">
-                POSITIONS: {activeTradesList.length}
-              </span>
-            </div>
-            
-            <div className="grid grid-cols-6 text-zinc-500 border-b border-zinc-900/60 pb-2.5 mb-3 px-3 font-medium mt-4 text-[11px] uppercase tracking-wider">
-               <span>Symbol / Side</span>
-               <span>Entry / Current</span>
-               <span>Size / Cost</span>
-               <span>Stop / Take Profit</span>
-               <span className="text-right">Unrealized PnL</span>
-               <span className="text-right">Action</span>
-            </div>
-            
-            {activeTradesList.length === 0 ? (
-              <div className="flex-grow flex flex-col items-center justify-center text-zinc-500 text-xs py-12 space-y-2 border border-dashed border-zinc-900/40 rounded-2xl bg-zinc-900/5">
-                <span>[ NO ACTIVE REAL-TIME POSITIONS RUNNING ]</span>
-                <span className="text-[11px] text-zinc-500">The automatic scanner will place a trade once filters align, or you can bypass guards to trade immediately.</span>
-              </div>
-            ) : (
-              <div className="space-y-2 flex-grow overflow-y-auto max-h-[300px]">
-                {activeTradesList.map((t, index) => {
-                  const entry = parseFloat(t.entry_price) || 0;
-                  const currentPrice = parseFloat(t.current_price) || activePrices?.[t.symbol] || entry;
-                  const qty = parseFloat(t.qty) || 0;
                   
-                  const pnlVal = t.side === 'buy' 
-                    ? (currentPrice - entry) * qty 
-                    : (entry - currentPrice) * qty;
-                  const pnlPct = entry > 0 ? (pnlVal / (entry * qty)) * 100 : 0;
-                  const isProfit = pnlVal >= 0;
-                  
-                  return (
-                    <div key={index} className="grid grid-cols-6 items-center px-3 py-3 bg-zinc-900/10 border border-zinc-900/60 rounded-xl hover:bg-zinc-900/20 transition-all text-zinc-300 text-xs">
-                      <div className="flex flex-col">
-                        <span className="text-white font-semibold">{t.symbol}</span>
-                        <span className={`uppercase font-semibold text-[9px] tracking-wider mt-1 max-w-max leading-none ${t.side === 'buy' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                          {t.side === 'buy' ? '● LONG' : '● SHORT'}
-                        </span>
-                      </div>
-                      
-                      <div className="flex flex-col font-mono text-[11px]">
-                        <span className="text-zinc-200">${entry.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</span>
-                        <span className="text-zinc-500 text-[10px]">${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</span>
-                      </div>
-                      
-                      <div className="flex flex-col font-mono text-[11px]">
-                        <span className="text-zinc-200">{qty.toFixed(5)}</span>
-                        <span className="text-zinc-500 text-[10px]">${(qty * entry).toFixed(2)} USDT</span>
-                      </div>
-                      
-                      <div className="flex flex-col font-mono text-[11px]">
-                        <span className="text-rose-400/80">SL: ${parseFloat(t.sl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        <span className="text-emerald-400/80">TP: ${parseFloat(t.tp).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                      </div>
-                      
-                      <div className="text-right flex flex-col justify-center items-end pr-3 font-mono text-[11px]">
-                        <span className={`font-semibold ${isProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
-                          {isProfit ? '+$' : '-$'}{Math.abs(pnlVal).toFixed(2)}
-                        </span>
-                        <span className={`text-[10px] ${isProfit ? 'text-emerald-500' : 'text-rose-500'}`}>
-                          {isProfit ? '+' : ''}{pnlPct.toFixed(2)}%
-                        </span>
-                      </div>
+                  <ConsoleToggle 
+                    label="Daily 200 SMA Guard" 
+                    description="Restricts buys below daily 200 SMA (Bear Protection)"
+                    active={displayedSettings.daily_200sma_guard}
+                    onChange={() => toggleSetting("daily_200sma_guard")}
+                    isGuard={true}
+                    explanation="A safety net that only allows buying when the market is in a long-term uptrend (healthy market). It protects your money by blocking buy orders when the overall market is in a long-term downturn."
+                  />
 
-                      <div className="text-right flex items-center justify-end">
-                        <button
-                          onClick={() => closePosition(t.symbol)}
-                          disabled={apiCloseSaving === t.symbol}
-                          className="bg-zinc-900 hover:bg-zinc-800 text-rose-400 hover:text-rose-300 border border-zinc-800 hover:border-zinc-700 px-3 py-1.5 rounded-lg transition-all cursor-pointer disabled:opacity-50 text-[10px] font-medium"
+                  <ConsoleToggle 
+                    label="4H Trend Guard" 
+                    description="Restricts counter-trend entries based on 4H MACD"
+                    active={displayedSettings.trend_guard_enabled}
+                    onChange={() => toggleSetting("trend_guard_enabled")}
+                    isGuard={true}
+                    explanation="Keeps the bot aligned with the medium-term market direction (over the last 4 hours). It stops the bot from buying when the price is currently falling, avoiding catching a falling knife."
+                  />
+
+                  <ConsoleToggle 
+                    label="Allow Short Positions" 
+                    description="Allows opening short positions in bearish trends"
+                    active={displayedSettings.allow_shorts}
+                    onChange={() => toggleSetting("allow_shorts")}
+                    explanation="Allows the bot to make money when prices are going down. When turned on, the bot can enter a short trade (betting the price will drop) to profit from downward trends."
+                  />
+
+                  <ConsoleToggle 
+                    label="Trailing ATR Stop Loss" 
+                    description="Dynamically raises stop loss using 3x rolling ATR"
+                    active={displayedSettings.trailing_stop_enabled}
+                    onChange={() => toggleSetting("trailing_stop_enabled")}
+                    explanation="A smart exit guard that locks in profits automatically. As the price goes up, the bot drags its safety line (Stop Loss) up behind it. If the price suddenly reverses, it exits early with the profit you already made."
+                  />
+
+                  <ConsoleToggle 
+                    label="Partial Profit Scale-out" 
+                    description="Locks 50% profit at 1:1 RR and moves SL to breakeven"
+                    active={displayedSettings.partial_tp_enabled}
+                    onChange={() => toggleSetting("partial_tp_enabled")}
+                    explanation="Automatically locks in partial profits. When a trade is halfway to its target, it sells 50% of the coin to secure that gain and moves the remaining safety line to your entry price, ensuring you cannot lose on the rest."
+                  />
+
+                  <ConsoleToggle 
+                    label="Dynamic ML Risk Sizing" 
+                    description="Sizes risk (3% - 6.5%) based on brain confidence"
+                    active={displayedSettings.dynamic_ml_risk}
+                    onChange={() => toggleSetting("dynamic_ml_risk")}
+                    explanation="Allows the AI brain to adjust trade size. If the AI is highly confident about a trade, it will risk slightly more capital (up to 6.5%). If confidence is low, it risks less (minimum 3%) to protect your account."
+                  />
+                </div>
+
+                {/* NUMERIC PARAMETERS */}
+                <div className="pt-6 border-t border-zinc-900 grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div>
+                    <div className="flex justify-between text-xs mb-2 font-mono uppercase items-center">
+                      <div className="flex items-center gap-2">
+                        <span className="text-zinc-400">Risk Allocation Per Trade</span>
+                        <button 
+                          onClick={() => setShowRiskExplanation(!showRiskExplanation)}
+                          className={`text-zinc-550 hover:text-white transition-colors focus:outline-none p-0.5 rounded-full hover:bg-zinc-900 ${showRiskExplanation ? 'text-white' : ''}`}
+                          title="Explain risk allocation in simple terms"
                         >
-                          {apiCloseSaving === t.symbol ? (
-                            <RefreshCw size={12} className="animate-spin" />
-                          ) : (
-                            "CLOSE"
-                          )}
+                          <Info size={12} />
                         </button>
                       </div>
+                      <span className="text-white font-semibold">{(displayedSettings.risk_per_trade * 100).toFixed(1)}%</span>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* COMPLETED TRADES HISTORY (1/3 width) */}
-          <div className="bg-[#09090b]/10 border border-zinc-900 rounded-2xl p-5 shadow-sm flex flex-col min-h-[300px]">
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-900/60">
-              <div className="flex items-center gap-2">
-                <Clock size={16} className="text-zinc-500" />
-                <span className="font-semibold text-sm text-zinc-200 tracking-tight">Completed Trades</span>
-              </div>
-              
-              {activeHistoryList.length > 0 && (
-                <button
-                  onClick={clearHistory}
-                  disabled={apiClearSaving}
-                  className="text-zinc-500 hover:text-rose-400 flex items-center gap-1 transition-colors cursor-pointer text-xs font-medium"
-                >
-                  <Trash2 size={12} /> Clear
-                </button>
-              )}
-            </div>
-
-            {activeHistoryList.length === 0 ? (
-              <div className="flex-grow flex items-center justify-center text-zinc-500 text-xs py-12">
-                [ NO TRADE HISTORY YET ]
-              </div>
-            ) : (
-              <div className="mt-4 space-y-2 overflow-y-auto max-h-[220px] flex-grow pr-1">
-                {activeHistoryList.map((item, idx) => {
-                  const pnl = parseFloat(item.pnl) || 0;
-                  const isProfit = pnl >= 0;
-                  return (
-                    <div key={idx} className="bg-zinc-900/5 border border-zinc-900/80 rounded-xl p-3 flex justify-between items-center text-xs">
-                      <div>
-                        <span className="font-semibold text-zinc-200">{item.symbol}</span>
-                        <div className="flex items-center gap-2 text-zinc-500 text-[10px] mt-1 uppercase font-medium">
-                          <span>{item.reason}</span>
-                          <span>•</span>
-                          <span className="font-mono text-[9px]">{item.closed_at ? new Date(item.closed_at).toLocaleTimeString() : 'N/A'}</span>
-                        </div>
+                    <input 
+                      type="range" 
+                      min="1.0" 
+                      max="10.0" 
+                      step="0.5"
+                      value={displayedSettings.risk_per_trade * 100}
+                      onChange={handleSliderChange}
+                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-white"
+                    />
+                    {showRiskExplanation ? (
+                      <div className="mt-2 text-[10px] text-zinc-450 leading-relaxed bg-black/40 border border-zinc-900 p-2.5 rounded-lg font-mono uppercase tracking-wider animate-in fade-in slide-in-from-top-1 duration-150">
+                        <span className="text-white font-bold block mb-1">Simple Explanation:</span>
+                        How much of your account balance you are willing to risk on a single bad trade. If set to 5%, a worst-case trade that hits the safety exit (Stop Loss) will only lose 5% of your total balance.
                       </div>
-                      <span className={`font-semibold font-mono text-xs px-2.5 py-0.5 rounded-full ${isProfit ? 'bg-emerald-950/20 text-emerald-400 border border-emerald-950/50' : 'bg-rose-950/20 text-rose-400 border border-rose-950/50'}`}>
-                        {isProfit ? '+$' : '-$'}{Math.abs(pnl).toFixed(2)}
+                    ) : (
+                      <span className="text-[10px] text-zinc-550 block mt-2 uppercase tracking-wider leading-relaxed">
+                        Defines the mathematical capital allocation exposed per Stop Loss distance.
                       </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-        </div>
-
-        {/* SYSTEM EVENT LOGS */}
-        <div className="bg-[#09090b]/10 border border-zinc-900 rounded-2xl p-5 shadow-sm">
-          <div className="flex items-center justify-between pb-3 border-b border-zinc-900/60 mb-4">
-            <div className="flex items-center gap-2">
-              <TerminalSquare size={16} className="text-zinc-500" />
-              <span className="font-semibold text-sm text-zinc-200 tracking-tight">Live Output logs</span>
-            </div>
-            <span className="text-[10px] text-zinc-500 font-semibold tracking-wider uppercase flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              Live Stream
-            </span>
-          </div>
-
-          <div className="bg-[#050507] border border-zinc-900/80 rounded-xl p-4 min-h-[140px] max-h-[220px] overflow-y-auto space-y-2 font-mono text-xs text-zinc-400">
-            {activeLogsList.length === 0 ? (
-              <div className="text-zinc-650 flex items-center justify-center h-24">
-                [ LOADING LIVE BOT EXECUTION STREAM ]
-              </div>
-            ) : (
-              activeLogsList.map((log, index) => {
-                let colorClass = "text-zinc-400";
-                if (log.message.includes("OPENED")) colorClass = "text-emerald-400 font-medium";
-                else if (log.message.includes("CLOSED")) colorClass = "text-amber-400 font-medium";
-                else if (log.message.includes("Blocked")) colorClass = "text-rose-400/80";
-                else if (log.message.includes("GUARD") || log.message.includes("Daily Loss")) colorClass = "text-rose-400 font-medium";
-                else if (log.message.includes("SCANNER")) colorClass = "text-zinc-500";
-                else if (log.message.includes("SYSTEM")) colorClass = "text-zinc-500";
-                
-                return (
-                  <div key={index} className="flex gap-4 hover:bg-zinc-900/30 p-1 rounded transition-colors">
-                    <span className="text-zinc-600 flex-none select-none">{log.time}</span>
-                    <span className={`break-all ${colorClass}`}>{log.message}</span>
+                    )}
                   </div>
-                );
-              })
-            )}
-          </div>
-        </div>
 
-      </div>
+                  <div>
+                    <div className="flex justify-between text-xs mb-2 font-mono uppercase items-center">
+                      <div className="flex items-center gap-2">
+                        <span className="text-zinc-400">Max Trade Cost Limit</span>
+                        <button 
+                          onClick={() => setShowCostExplanation(!showCostExplanation)}
+                          className={`text-zinc-550 hover:text-white transition-colors focus:outline-none p-0.5 rounded-full hover:bg-zinc-900 ${showCostExplanation ? 'text-white' : ''}`}
+                          title="Explain cost limit in simple terms"
+                        >
+                          <Info size={12} />
+                        </button>
+                      </div>
+                      <span className="text-white font-semibold">${displayedSettings.max_notional_per_trade.toFixed(2)} USDT</span>
+                    </div>
+                    <div className="relative flex items-center">
+                      <span className="absolute left-3 text-zinc-550 font-mono">$</span>
+                      <input 
+                        type="number" 
+                        min="1.0" 
+                        max="10.0" 
+                        value={displayedSettings.max_notional_per_trade}
+                        onChange={handleNotionalChange}
+                        className="w-full bg-zinc-950 border border-zinc-900 rounded-xl px-8 py-2.5 focus:border-white focus:outline-none text-white text-xs font-mono"
+                      />
+                    </div>
+                    {showCostExplanation ? (
+                      <div className="mt-2 text-[10px] text-zinc-450 leading-relaxed bg-black/40 border border-zinc-900 p-2.5 rounded-lg font-mono uppercase tracking-wider animate-in fade-in slide-in-from-top-1 duration-150">
+                        <span className="text-white font-bold block mb-1">Simple Explanation:</span>
+                        The maximum dollar amount (in USDT) the bot is allowed to put into any single trade. It acts as an absolute spending limit per trade, regardless of the risk setting.
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-zinc-555 block mt-2 uppercase tracking-wider leading-relaxed">
+                        Absolute maximum capital allocated per position entry.
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* ACTION BUTTON */}
+                <div className="space-y-3 pt-4 border-t border-zinc-900">
+                  {hasUnsavedChanges && (
+                    <div className="flex items-center gap-2 text-[10px] text-white font-mono uppercase tracking-wider bg-zinc-900 border border-zinc-800 px-4 py-2.5 rounded-xl animate-pulse">
+                      <AlertTriangle size={12} className="text-white shrink-0" />
+                      <span>Unsaved Changes Detected • Pending Bot Push</span>
+                    </div>
+                  )}
+                  <button 
+                    onClick={() => saveSettings(displayedSettings)}
+                    disabled={apiSaving}
+                    className={`w-full font-semibold py-3 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 text-xs shadow-sm uppercase font-mono tracking-wider ${hasUnsavedChanges ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-zinc-450 border border-zinc-850 hover:text-white hover:border-zinc-700'}`}
+                  >
+                    {apiSaving ? (
+                      <>
+                        <RefreshCw size={14} className="animate-spin" /> Saving Settings...
+                      </>
+                    ) : (
+                      backendOnline ? "Save Configuration to Bot Engine" : "Save Configuration to Sandbox"
+                    )}
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: INACTIVITY DIAGNOSTICS */}
+          {activeTab === 'diagnostics' && (
+            <div className="space-y-8 max-w-4xl">
+              <div>
+                <h2 className="text-xl font-bold text-white tracking-tight uppercase">System Inactivity Monitor</h2>
+                <p className="text-xs text-zinc-550 mt-1 uppercase tracking-wider">Tracks inactive intervals and diagnoses exactly why positions have not been entered</p>
+              </div>
+
+              <div className="bg-[#09090b] border border-zinc-900 rounded-2xl p-6 space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-zinc-900">
+                  <AlertTriangle size={16} className="text-zinc-500" />
+                  <span className="font-semibold text-xs text-zinc-400 tracking-wider uppercase font-mono">24H Scan Activity Status</span>
+                </div>
+                
+                <div className="divide-y divide-zinc-900">
+                  {checkNoTradeDiagnostics().map(({ symbol, noTradeFor24h, statusMessage, reason }) => (
+                    <div key={symbol} className="py-5 first:pt-0 last:pb-0 space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-white font-mono text-sm tracking-wider">{symbol}</span>
+                        <span className={`text-[9px] font-mono font-semibold px-2.5 py-0.5 rounded-full border uppercase ${
+                          noTradeFor24h ? "border-white bg-transparent text-white" : "border-zinc-800 bg-transparent text-zinc-600"
+                        }`}>
+                          {noTradeFor24h ? "24h+ inactive" : "active interval"}
+                        </span>
+                      </div>
+                      
+                      <div className="text-xs text-zinc-450 flex items-center gap-2">
+                        <Clock size={12} className="text-zinc-550" />
+                        <span>{statusMessage}</span>
+                      </div>
+                      
+                      <div className="p-4 rounded-xl border bg-zinc-950/40 border-zinc-900 text-xs text-zinc-450 leading-relaxed">
+                        <span className="text-zinc-500 font-bold uppercase tracking-wider mr-1 font-mono">Diagnosis:</span>
+                        {reason}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: LOGS & COMPLETED HISTORY */}
+          {activeTab === 'logs' && (
+            <div className="space-y-8">
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-white tracking-tight uppercase">Logs & Executions History</h2>
+                  <p className="text-xs text-zinc-550 mt-1 uppercase tracking-wider">Inspect output stream and review recent trade terminations</p>
+                </div>
+                
+                {activeHistoryList.length > 0 && (
+                  <button
+                    onClick={clearHistory}
+                    disabled={apiClearSaving}
+                    className="text-zinc-500 hover:text-white flex items-center gap-2 transition-colors cursor-pointer text-xs font-semibold uppercase font-mono tracking-wider bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-xl hover:bg-zinc-950"
+                  >
+                    <Trash2 size={12} /> Clear History
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                
+                {/* EVENT LOGS STREAM (2/3 width) */}
+                <div className="lg:col-span-2 bg-[#09090b] border border-zinc-900 rounded-2xl p-6 space-y-4 flex flex-col h-[520px]">
+                  <div className="flex items-center justify-between pb-3 border-b border-zinc-900/60">
+                    <div className="flex items-center gap-2">
+                      <TerminalSquare size={16} className="text-zinc-500" />
+                      <span className="font-semibold text-xs text-zinc-400 tracking-wider uppercase font-mono">Execution Stream Output</span>
+                    </div>
+                    <span className="text-[10px] text-zinc-500 font-mono font-semibold uppercase bg-zinc-950 border border-zinc-900 px-2 py-0.5 rounded-full">
+                      Real-time
+                    </span>
+                  </div>
+
+                  <div className="flex-1 bg-black border border-zinc-900 rounded-xl p-4 overflow-y-auto space-y-2 font-mono text-xs text-zinc-400">
+                    {activeLogsList.length === 0 ? (
+                      <div className="text-zinc-650 flex items-center justify-center h-full uppercase font-mono">
+                        [ WAITING FOR SYSTEM LOG BUFFER ]
+                      </div>
+                    ) : (
+                      activeLogsList.map((log, index) => {
+                        let colorClass = "text-zinc-400";
+                        if (log.message.includes("OPENED") || log.message.includes("CLOSED")) colorClass = "text-white font-semibold";
+                        else if (log.message.includes("Blocked") || log.message.includes("GUARD") || log.message.includes("Daily Loss")) colorClass = "text-zinc-300 font-medium";
+                        else if (log.message.includes("SCANNER") || log.message.includes("SYSTEM")) colorClass = "text-zinc-600";
+                        
+                        return (
+                          <div key={index} className="flex gap-4 hover:bg-zinc-900/30 p-1.5 rounded transition-colors">
+                            <span className="text-zinc-600 flex-none select-none">{log.time}</span>
+                            <span className={`break-all ${colorClass}`}>{log.message}</span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {/* COMPLETED HISTORY SIDEBAR (1/3 width) */}
+                <div className="bg-[#09090b] border border-zinc-900 rounded-2xl p-6 space-y-4 flex flex-col h-[520px]">
+                  <div className="flex items-center gap-2 pb-3 border-b border-zinc-900">
+                    <History size={16} className="text-zinc-500" />
+                    <span className="font-semibold text-xs text-zinc-400 tracking-wider uppercase font-mono">Completed Trades</span>
+                  </div>
+
+                  {activeHistoryList.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center text-zinc-600 text-xs font-mono uppercase text-center p-4">
+                      [ NO COMPLETED TRADES REGISTERED ]
+                    </div>
+                  ) : (
+                    <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+                      {activeHistoryList.map((item, idx) => {
+                        const pnl = parseFloat(item.pnl) || 0;
+                        const isProfit = pnl >= 0;
+                        return (
+                          <div key={idx} className="bg-zinc-950/40 border border-zinc-900 rounded-xl p-4 flex justify-between items-center text-xs hover:border-zinc-800 transition-colors">
+                            <div>
+                              <span className="font-bold text-white font-mono tracking-wider">{item.symbol}</span>
+                              <div className="flex items-center gap-2 text-zinc-500 text-[10px] mt-1.5 uppercase font-mono">
+                                <span>{item.reason}</span>
+                                <span>•</span>
+                                <span className="font-mono text-[9px]">{item.closed_at ? new Date(item.closed_at).toLocaleTimeString() : 'N/A'}</span>
+                              </div>
+                            </div>
+                            <span className={`font-mono text-xs px-2.5 py-0.5 rounded-full border ${isProfit ? 'border-white text-white font-semibold' : 'border-zinc-800 text-zinc-550'}`}>
+                              {isProfit ? '+$' : '-$'}{Math.abs(pnl).toFixed(2)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            </div>
+          )}
+
+        </div>
+      </main>
+
+      {/* TABS INTERACTIVE DIAGNOSTICS MODAL OVERLAY */}
+      {modalSymbol && (() => {
+        const symbol = modalSymbol;
+        const livePrice = activePrices?.[symbol] || COIN_CONFIGS[symbol].price;
+        const diag = activeDiagnostics?.[symbol];
+        const regime = diag?.regime || "ranging";
+        const score = diag?.score || 0.0;
+        const threshold = diag?.threshold || 2.5;
+        const mlConf = diag?.ml_prob ? (diag.ml_prob * 100).toFixed(1) : "50.0";
+        const rsi = diag?.rsi ? diag.rsi.toFixed(1) : "50.0";
+        const advisory = getAdvisoryMessage(symbol, diag);
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+            <div className="bg-[#09090b] border border-zinc-900 rounded-2xl max-w-lg w-full p-6 relative space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+              
+              {/* Header */}
+              <div className="flex justify-between items-start pb-4 border-b border-zinc-900">
+                <div>
+                  <h3 className="text-lg font-bold text-white font-mono tracking-wider">{symbol} DIAGNOSTICS</h3>
+                  <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest font-semibold block mt-0.5">TECHNICAL ALIGNMENT DETAILS</span>
+                </div>
+                <button 
+                  onClick={() => setModalSymbol(null)}
+                  className="text-zinc-500 hover:text-white border border-zinc-900 hover:border-zinc-800 p-1.5 rounded-xl transition-all cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Metrics Grid */}
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div className="bg-zinc-950/40 border border-zinc-900 rounded-xl p-3">
+                  <span className="text-zinc-500 block text-[9px] uppercase tracking-wider font-mono">REGIME</span>
+                  <span className="text-white font-bold font-mono tracking-wide uppercase text-sm mt-0.5">{regime}</span>
+                </div>
+                <div className="bg-zinc-950/40 border border-zinc-900 rounded-xl p-3">
+                  <span className="text-zinc-500 block text-[9px] uppercase tracking-wider font-mono">VERDICT SCORE</span>
+                  <span className="text-white font-bold font-mono tracking-wide text-sm mt-0.5">{score} / {threshold}</span>
+                </div>
+                <div className="bg-zinc-950/40 border border-zinc-900 rounded-xl p-3">
+                  <span className="text-zinc-500 block text-[9px] uppercase tracking-wider font-mono">ML BRAIN PROBABILITY</span>
+                  <span className="text-white font-bold font-mono tracking-wide text-sm mt-0.5">{mlConf}%</span>
+                </div>
+                <div className="bg-zinc-950/40 border border-zinc-900 rounded-xl p-3">
+                  <span className="text-zinc-500 block text-[9px] uppercase tracking-wider font-mono">LIVE VALUE</span>
+                  <span className="text-white font-bold font-mono tracking-wide text-sm mt-0.5">${livePrice.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Technical Indicator Indicators */}
+              <div className="bg-zinc-950/30 p-4 rounded-xl border border-zinc-900 space-y-3.5">
+                <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest font-semibold block">CONFLUENCE MATRICES</span>
+                
+                <div className="grid grid-cols-3 gap-2.5 text-center text-xs">
+                  <div className="border border-zinc-900 p-2.5 rounded-lg bg-zinc-950/60">
+                    <span className="text-zinc-500 block text-[9px] uppercase tracking-wider mb-1 font-mono">RSI ({rsi})</span>
+                    <span className={`font-semibold font-mono text-[10px] ${diag?.rsi_sig === "BUY" ? "text-white" : (diag?.rsi_sig === "SELL" ? "text-zinc-400" : "text-zinc-600")}`}>
+                      {diag?.rsi_sig || "HOLD"}
+                    </span>
+                  </div>
+                  <div className="border border-zinc-900 p-2.5 rounded-lg bg-zinc-950/60">
+                    <span className="text-zinc-500 block text-[9px] uppercase tracking-wider mb-1 font-mono">BOLLINGER</span>
+                    <span className={`font-semibold font-mono text-[10px] ${diag?.bb_sig === "BUY" ? "text-white" : (diag?.bb_sig === "SELL" ? "text-zinc-400" : "text-zinc-600")}`}>
+                      {diag?.bb_sig || "HOLD"}
+                    </span>
+                  </div>
+                  <div className="border border-zinc-900 p-2.5 rounded-lg bg-zinc-950/60">
+                    <span className="text-zinc-500 block text-[9px] uppercase tracking-wider mb-1 font-mono">MACD / SMA</span>
+                    <span className={`font-semibold font-mono text-[10px] ${diag?.sma_sig === "BUY" ? "text-white" : (diag?.sma_sig === "SELL" ? "text-zinc-400" : "text-zinc-600")}`}>
+                      {diag?.sma_sig || "HOLD"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center text-xs border-t border-zinc-900/60 pt-3">
+                  <span className="text-zinc-500 uppercase tracking-widest font-mono text-[9px]">4H MACRO BIAS</span>
+                  <span className={`font-bold font-mono text-[10px] ${diag?.market_bullish ? 'text-white' : 'text-zinc-550'}`}>
+                    {diag?.market_bullish ? 'BULLISH BIAS' : 'BEARISH BIAS'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Advisory Message */}
+              <div className="p-4 rounded-xl flex items-start gap-3 border bg-zinc-950/40 border-zinc-900 text-zinc-400">
+                <div className="mt-0.5">
+                  {advisory.type === "warning" && <AlertTriangle size={15} className="text-white flex-none" />}
+                  {advisory.type === "success" && <CheckCircle2 size={15} className="text-white flex-none" />}
+                  {advisory.type === "info" && <Info size={15} className="text-zinc-400 flex-none" />}
+                </div>
+                <div className="leading-relaxed text-xs">
+                  {advisory.text}
+                </div>
+              </div>
+
+              {/* Footer close button */}
+              <button 
+                onClick={() => setModalSymbol(null)}
+                className="w-full bg-white hover:bg-zinc-200 text-black py-2.5 rounded-xl text-xs font-semibold uppercase font-mono tracking-wider cursor-pointer transition-colors"
+              >
+                Close View
+              </button>
+
+            </div>
+          </div>
+        );
+      })()}
+
     </div>
   );
 }
 
 // Sub-components
-function Metric({ title, value, sub, subColor = "text-zinc-500" }: any) {
-  return (
-    <div className="bg-zinc-900/10 border border-zinc-900 rounded-2xl p-5 flex flex-col justify-between hover:bg-zinc-900/20 hover:border-zinc-800 transition-all duration-200 shadow-sm relative overflow-hidden group">
-      <div>
-        <span className="text-zinc-500 tracking-wider text-[10px] uppercase font-semibold">{title}</span>
-        <div className="text-2xl text-white font-semibold font-mono tracking-tight mt-1.5">{value}</div>
-      </div>
-      <div className={`text-[11px] font-medium mt-3.5 ${subColor}`}>{sub}</div>
-    </div>
-  );
-}
-
 function Sparkline({ data }: { data: {value: number}[] }) {
   if (!data || data.length === 0) return null;
   const values = data.map(d => d.value);
@@ -1280,26 +1463,49 @@ function Sparkline({ data }: { data: {value: number}[] }) {
   );
 }
 
-function ConsoleToggle({ label, description, active, onChange, isGuard = false }: { label: string, description: string, active: boolean, onChange: () => void, isGuard?: boolean }) {
+function ConsoleToggle({ label, description, active, onChange, isGuard = false, explanation }: { label: string, description: string, active: boolean, onChange: () => void, isGuard?: boolean, explanation?: string }) {
+  const [showExplanation, setShowExplanation] = useState(false);
+
   return (
-    <div className="flex items-start justify-between bg-zinc-900/10 border border-zinc-900 rounded-xl p-3 hover:border-zinc-800 transition-all duration-200 select-none">
-      <div className="space-y-1 max-w-[80%]">
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-zinc-200 text-xs">{label}</span>
-          {isGuard && (
-            <span className="text-[8px] px-2 py-0.5 rounded-full font-semibold uppercase bg-rose-950/30 text-rose-400 border border-rose-900/30">
-              GUARD
-            </span>
-          )}
+    <div className="flex flex-col bg-zinc-900/10 border border-zinc-900 rounded-xl p-3.5 hover:border-zinc-800 transition-all duration-200 select-none gap-2">
+      <div className="flex items-start justify-between">
+        <div className="space-y-1 max-w-[80%]">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-zinc-200 text-xs tracking-wide uppercase font-mono">{label}</span>
+            {isGuard && (
+              <span className="text-[8px] px-2 py-0.5 rounded-full font-semibold uppercase bg-zinc-900 text-zinc-400 border border-zinc-800 font-mono">
+                GUARD
+              </span>
+            )}
+            {explanation && (
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowExplanation(!showExplanation);
+                }}
+                className={`text-zinc-550 hover:text-white transition-colors focus:outline-none p-0.5 rounded-full hover:bg-zinc-900 ${showExplanation ? 'text-white' : ''}`}
+                title="Explain setting in simple terms"
+              >
+                <Info size={12} />
+              </button>
+            )}
+          </div>
+          <p className="text-[11px] text-zinc-500 leading-normal">{description}</p>
         </div>
-        <p className="text-[11px] text-zinc-550 leading-normal">{description}</p>
+        <button 
+          onClick={onChange}
+          className={`w-9 h-5 rounded-full relative p-0.5 transition-colors duration-200 cursor-pointer shrink-0 ${active ? 'bg-white' : 'bg-zinc-800'}`}
+        >
+          <span className={`h-4 w-4 rounded-full block transition-transform duration-200 ${active ? 'translate-x-4 bg-zinc-950' : 'translate-x-0 bg-zinc-400'}`}></span>
+        </button>
       </div>
-      <button 
-        onClick={onChange}
-        className={`w-9 h-5 rounded-full relative p-0.5 transition-colors duration-200 cursor-pointer ${active ? 'bg-white' : 'bg-zinc-800'}`}
-      >
-        <span className={`h-4 w-4 rounded-full block transition-transform duration-200 ${active ? 'translate-x-4 bg-zinc-950' : 'translate-x-0 bg-zinc-400'}`}></span>
-      </button>
+
+      {showExplanation && explanation && (
+        <div className="text-[10px] text-zinc-450 leading-relaxed bg-black/40 border border-zinc-900 p-2.5 rounded-lg font-mono uppercase tracking-wider animate-in fade-in slide-in-from-top-1 duration-150">
+          <span className="text-white font-bold block mb-1">Simple Explanation:</span>
+          {explanation}
+        </div>
+      )}
     </div>
   );
 }

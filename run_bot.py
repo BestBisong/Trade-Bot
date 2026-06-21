@@ -383,6 +383,7 @@ async def run_bot():
         except Exception as e:
             logging.error(f"JARVIS | ML warmup failed for {s}: {e}")
 
+    last_scan_time = datetime.datetime.now() - datetime.timedelta(seconds=30)
     try:
         while True:
             try:
@@ -486,6 +487,7 @@ async def run_bot():
                         await broker.place_order(trade['symbol'], "sell" if trade['side'] == "buy" else "buy", trade['qty'], exit_fill)
                         active_trades.remove(trade)
 
+                should_scan = (now - last_scan_time).total_seconds() >= 30
                 auto_trading_enabled = settings.get("auto_trading_enabled", True)
                 can_trade = (
                     auto_trading_enabled
@@ -493,33 +495,36 @@ async def run_bot():
                     and risk_mgmt.allowed(virtual_wallet)
                     and risk_mgmt.can_open_new_trade(len(active_trades), equity=virtual_wallet)
                 )
-                if can_trade:
-                    for s in settings.get("symbols", SYMBOLS):
-                        await scan_symbol(s, broker, ml_agent, active_trades, virtual_wallet, tuned_params, now, settings)
-                        price_val = await broker.price(s)
-                        update_shared_data(
-                            active_trades, virtual_wallet, risk_snapshot,
-                            scan_heartbeat={s: datetime.datetime.now().strftime("%H:%M:%S")},
-                            system_snapshot={"prices": {s: price_val}} if price_val else None
-                        )
-                        await asyncio.sleep(1.5)
-                else:
-                    # Update diagnostics to show bot is in standby or cooldown
-                    for s in settings.get("symbols", SYMBOLS):
-                        reason = "AUTO_TRADING_DISABLED" if not auto_trading_enabled else ("COOLDOWN_ACTIVE" if not risk_mgmt.allowed(virtual_wallet) else "MAX_POSITIONS_REACHED")
-                        update_diagnostics(s, {
-                            "status": "HOLD",
-                            "blocked_by": reason,
-                            "regime": "standby",
-                            "score": 0.0,
-                            "threshold": 2.5
-                        })
+                if should_scan:
+                    last_scan_time = now
+                    if can_trade:
+                        for s in settings.get("symbols", SYMBOLS):
+                            await scan_symbol(s, broker, ml_agent, active_trades, virtual_wallet, tuned_params, now, settings)
+                            price_val = await broker.price(s)
+                            update_shared_data(
+                                active_trades, virtual_wallet, risk_snapshot,
+                                scan_heartbeat={s: datetime.datetime.now().strftime("%H:%M:%S")},
+                                system_snapshot={"prices": {s: price_val}} if price_val else None
+                            )
+                            await asyncio.sleep(1.5)
+                    else:
+                        # Update diagnostics to show bot is in standby or cooldown
+                        for s in settings.get("symbols", SYMBOLS):
+                            reason = "AUTO_TRADING_DISABLED" if not auto_trading_enabled else ("COOLDOWN_ACTIVE" if not risk_mgmt.allowed(virtual_wallet) else "MAX_POSITIONS_REACHED")
+                            update_diagnostics(s, {
+                                "status": "HOLD",
+                                "blocked_by": reason,
+                                "regime": "standby",
+                                "score": 0.0,
+                                "threshold": 2.5
+                            })
 
                 update_shared_data(active_trades, virtual_wallet, risk_snapshot)
-                logging.info(f"JARVIS | Scan cycle complete. Active positions: {len(active_trades)} | Wallet: ${virtual_wallet:.2f}")
+                if should_scan:
+                    logging.info(f"JARVIS | Scan cycle complete. Active positions: {len(active_trades)} | Wallet: ${virtual_wallet:.2f}")
             except Exception as e:
                 logging.error(f"SYSTEM_GLITCH | Exception occurred in loop cycle: {e}", exc_info=True)
-            await asyncio.sleep(10)
+            await asyncio.sleep(1)
     finally:
         await broker.close()
         await close_exchange()
