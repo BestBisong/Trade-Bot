@@ -79,7 +79,17 @@ def get_state():
     return {
         "wallet": state.get("wallet", 100.0),
         "timestamp": state.get("timestamp"),
-        "risk": state.get("risk", {}),
+        "risk": {
+            "loss_today": 0.0,
+            "consecutive_losses": 0,
+            "trades_today": 0,
+            "wins_today": 0,
+            "losses_today": 0,
+            "win_rate": 0.0,
+            "daily_pnl_pct": 0.0,
+            "cooldown_until": None,
+            **state.get("risk", {})
+        },
         "heartbeats": heartbeat,
         "prices": state.get("prices", {}),
         "settings": settings,

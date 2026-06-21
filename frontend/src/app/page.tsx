@@ -827,8 +827,8 @@ export default function Dashboard() {
               <div className="flex items-center gap-2 border-l border-zinc-900 pl-6">
                 <TrendingUp size={14} className="text-zinc-555" />
                 <span className="text-zinc-400 font-semibold uppercase tracking-wider">PnL Today:</span>
-                <span className={`font-mono font-bold ${systemState.risk.daily_pnl_pct >= 0 ? 'text-white' : 'text-zinc-500'}`}>
-                  {systemState.risk.daily_pnl_pct >= 0 ? '+' : ''}{systemState.risk.daily_pnl_pct.toFixed(2)}%
+                <span className={`font-mono font-bold ${(systemState.risk?.daily_pnl_pct ?? 0) >= 0 ? 'text-white' : 'text-zinc-500'}`}>
+                  {(systemState.risk?.daily_pnl_pct ?? 0) >= 0 ? '+' : ''}{(systemState.risk?.daily_pnl_pct ?? 0).toFixed(2)}%
                 </span>
               </div>
             )}
@@ -858,7 +858,7 @@ export default function Dashboard() {
                     ACTIVE POSITIONS: {activeTradesList.length}
                   </span>
                   <span className="text-xs bg-zinc-900 text-zinc-400 px-3 py-1.5 rounded-full border border-zinc-800 font-semibold font-mono">
-                    WIN RATE: {backendOnline ? `${systemState.risk.win_rate.toFixed(1)}%` : `${activeHistoryList.length > 0 ? ((activeHistoryList.filter(h => h.pnl > 0).length / activeHistoryList.length) * 100).toFixed(1) : '0.0'}%`}
+                    WIN RATE: {backendOnline ? `${(systemState.risk?.win_rate ?? 0).toFixed(1)}%` : `${activeHistoryList.length > 0 ? ((activeHistoryList.filter(h => h.pnl > 0).length / activeHistoryList.length) * 100).toFixed(1) : '0.0'}%`}
                   </span>
                 </div>
               </div>
