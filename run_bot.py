@@ -411,6 +411,14 @@ async def run_bot():
                     if settings.get("trailing_stop_enabled", False):
                         import ta
                         trade_df = trade.get('df')
+                        if trade_df is None:
+                            try:
+                                # Reconstruct the DataFrame if it was lost on restart
+                                trade_df = await fetch(trade['symbol'], timeframe=TIMEFRAME, limit=100)
+                                trade['df'] = trade_df
+                            except Exception as ex:
+                                logging.warning(f"TRAILING_STOP_ERROR | Could not reconstruct DF for {trade['symbol']}: {ex}")
+
                         if trade_df is not None:
                             current_atr = ta.volatility.average_true_range(
                                 trade_df["high"], trade_df["low"], trade_df["close"], window=14
