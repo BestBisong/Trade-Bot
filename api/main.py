@@ -211,9 +211,9 @@ def get_logs():
             else:
                 events.append({"time": datetime.now().strftime("%H:%M:%S"), "message": line})
                 
-            if len(events) >= 20:
+            if len(events) >= 50:
                 break
                 
-        return events
+        return list(reversed(events))
     except Exception as e:
         return [{"time": "ERROR", "message": f"Failed to read live logs: {str(e)}"}]
