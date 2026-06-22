@@ -493,7 +493,7 @@ def run_backtest_symbol(symbol: str, df_5m, df_1h, df_1d, ml_agent, tuned_params
             "regime": regime,
             "score":  f"SCORE:{score}|{regime.upper()}",
             "opened": str(now_ts),
-            "expiry": now_ts + datetime.timedelta(days=7),
+            "expiry": now_ts + datetime.timedelta(days=2),
             "sl_dist": sl_dist,
             "half_tp": entry_fill + sl_dist if signal == "BUY" else entry_fill - sl_dist,
             "has_scaled_out": False,

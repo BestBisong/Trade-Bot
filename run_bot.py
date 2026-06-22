@@ -141,7 +141,7 @@ async def process_pending_commands(active_trades, virtual_wallet, broker, now):
                     sl_dist = abs(entry_fill - sl)
                     active_trades.append({
                         'symbol': symbol, 'side': side.lower(), 'entry_price': entry_fill,
-                        'tp': tp, 'sl': sl, 'qty': qty, 'expiry': now + datetime.timedelta(days=7),
+                        'tp': tp, 'sl': sl, 'qty': qty, 'expiry': now + datetime.timedelta(days=2),
                         'df': None, 'opened_at': now.isoformat(), 'status': "manual", 'regime': "manual",
                         'sl_dist': sl_dist,
                         'half_tp': entry_fill + sl_dist if side.lower() == "buy" else entry_fill - sl_dist,
@@ -318,7 +318,7 @@ async def scan_symbol(symbol, broker, ml_agent, active_trades, virtual_wallet, t
             if order:
                 active_trades.append({
                     'symbol': symbol, 'side': signal.lower(), 'entry_price': entry_fill,
-                    'tp': tp, 'sl': sl, 'qty': qty, 'expiry': now + datetime.timedelta(days=7),
+                    'tp': tp, 'sl': sl, 'qty': qty, 'expiry': now + datetime.timedelta(days=2),
                     'df': df, 'opened_at': now.isoformat(), 'status': status, 'regime': regime,
                     'sl_dist': sl_dist,
                     'half_tp': entry_fill + sl_dist if signal == "BUY" else entry_fill - sl_dist,
@@ -362,7 +362,7 @@ async def run_bot():
             try:
                 t['expiry'] = datetime.datetime.fromisoformat(t['expiry'])
             except Exception:
-                t['expiry'] = datetime.datetime.now() + datetime.timedelta(days=7)
+                t['expiry'] = datetime.datetime.now() + datetime.timedelta(days=2)
     tuned_params = load_tuned_params()["params"]
 
     logging.info("JARVIS | Async Engine Online. Monitoring parallel streams...")
@@ -457,7 +457,7 @@ async def run_bot():
                         try:
                             expiry_val = datetime.datetime.fromisoformat(expiry_val)
                         except Exception:
-                            expiry_val = now + datetime.timedelta(days=7)
+                            expiry_val = now + datetime.timedelta(days=2)
                             
                     if hit_tp or hit_sl or now >= expiry_val:
                         exit_fill = apply_slippage(current_price, trade['side'], SLIPPAGE_BPS)
