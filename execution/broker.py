@@ -26,10 +26,10 @@ class BybitBroker:
         })
         
         if self.paper_mode:
-            logging.info("BROKER | Bybit Paper Mode Active. Using Kraken for public price data feed.")
+            logging.info("BROKER | Bybit Paper Mode Active. Using Gate.io for public price data feed.")
             public_connector = aiohttp.TCPConnector(resolver=aiohttp.ThreadedResolver())
             self.public_session = aiohttp.ClientSession(connector=public_connector)
-            self.public_exchange = ccxt.kraken({
+            self.public_exchange = ccxt.gate({
                 'enableRateLimit': True,
                 'session': self.public_session
             })

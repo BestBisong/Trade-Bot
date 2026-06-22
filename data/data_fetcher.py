@@ -15,7 +15,7 @@ def get_exchange():
         resolver = aiohttp.ThreadedResolver()
         connector = aiohttp.TCPConnector(resolver=resolver)
         session = aiohttp.ClientSession(connector=connector)
-        exchange = ccxt.kraken({
+        exchange = ccxt.gate({
             "enableRateLimit": True,
             "session": session
         })
