@@ -22,8 +22,14 @@ ch = logging.StreamHandler()
 ch.setFormatter(formatter)
 logger.addHandler(ch)
 
+# Custom FileHandler that flushes instantly to prevent buffering delays on the UI
+class InstantFileHandler(logging.FileHandler):
+    def emit(self, record):
+        super().emit(record)
+        self.flush()
+
 # File handler with UTF-8 encoding
-fh = logging.FileHandler("logs/bot.log", mode="a", encoding="utf-8")
+fh = InstantFileHandler("logs/bot.log", mode="a", encoding="utf-8")
 fh.setFormatter(formatter)
 logger.addHandler(fh)
 
