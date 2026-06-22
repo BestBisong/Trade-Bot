@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Activity, Shield, Cpu, Clock, TerminalSquare, X, Menu,
   Settings, Play, Pause, TrendingUp, TrendingDown, 
@@ -437,38 +437,32 @@ export default function Dashboard() {
   const displayedSettings = localSettings || activeSettings;
   const hasUnsavedChanges = !!(localSettings && JSON.stringify(localSettings) !== JSON.stringify(activeSettings));
   const activePrices = backendOnline ? systemState.prices : sandboxState.prices;
+  const [priceDirections, setPriceDirections] = useState<Record<string, 'up' | 'down'>>({});
+  const prevPricesRef = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    if (activePrices) {
+      let changed = false;
+      const nextDirs = { ...priceDirections };
+      Object.keys(activePrices).forEach((symbol) => {
+        const curPrice = activePrices[symbol];
+        const prevPrice = prevPricesRef.current[symbol];
+        if (prevPrice !== undefined && curPrice !== prevPrice) {
+          nextDirs[symbol] = curPrice > prevPrice ? 'up' : 'down';
+          changed = true;
+        }
+        prevPricesRef.current[symbol] = curPrice;
+      });
+      if (changed) {
+        setPriceDirections(nextDirs);
+      }
+    }
+  }, [activePrices, priceDirections]);
   const activeDiagnostics = backendOnline ? systemState.diagnostics : sandboxState.diagnostics;
   const activeWallet = backendOnline ? systemState.wallet : sandboxState.wallet;
   const activeTradesList = backendOnline ? activeTrades : sandboxState.activeTrades;
   const activeHistoryList = backendOnline ? history : sandboxState.history;
   const activeLogsList = backendOnline ? logs : sandboxState.logs;
-
-  // Real-time price tracking to determine directions (up / down)
-  const [priceHistory, setPriceHistory] = useState<Record<string, { lastPrice: number; direction: 'up' | 'down' | 'flat' }>>({});
-
-  useEffect(() => {
-    if (!activePrices) return;
-    setPriceHistory(prev => {
-      const updated = { ...prev };
-      let changed = false;
-      Object.keys(activePrices).forEach(symbol => {
-        const currentPrice = activePrices[symbol];
-        const lastData = prev[symbol];
-        
-        if (!lastData) {
-          updated[symbol] = { lastPrice: currentPrice, direction: 'flat' };
-          changed = true;
-        } else if (currentPrice > lastData.lastPrice) {
-          updated[symbol] = { lastPrice: currentPrice, direction: 'up' };
-          changed = true;
-        } else if (currentPrice < lastData.lastPrice) {
-          updated[symbol] = { lastPrice: currentPrice, direction: 'down' };
-          changed = true;
-        }
-      });
-      return changed ? updated : prev;
-    });
-  }, [activePrices]);
 
   const checkNoTradeDiagnostics = () => {
     const activeSymbols = activeSettings.symbols || ["BTC/USDT", "SOL/USDT", "XRP/USDT"];
@@ -854,7 +848,7 @@ export default function Dashboard() {
               <div className="flex items-center gap-2 border-l border-zinc-900 pl-6">
                 <TrendingUp size={14} className="text-zinc-555" />
                 <span className="text-zinc-400 font-semibold uppercase tracking-wider">PnL Today:</span>
-                <span className={`font-mono font-bold ${(systemState.risk?.daily_pnl_pct ?? 0) >= 0 ? 'text-white' : 'text-zinc-500'}`}>
+                <span className={`font-mono font-bold ${(systemState.risk?.daily_pnl_pct ?? 0) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                   {(systemState.risk?.daily_pnl_pct ?? 0) >= 0 ? '+' : ''}{(systemState.risk?.daily_pnl_pct ?? 0).toFixed(2)}%
                 </span>
               </div>
@@ -919,16 +913,8 @@ export default function Dashboard() {
                           </div>
                           <div className="text-right">
                             <span className="text-[9px] text-zinc-500 block font-mono tracking-widest uppercase">PRICE</span>
-                            <span className={`text-lg font-semibold font-mono tracking-tight transition-colors duration-300 ${
-                              priceHistory[symbol]?.direction === 'up' 
-                                ? 'text-emerald-500' 
-                                : priceHistory[symbol]?.direction === 'down' 
-                                  ? 'text-rose-500' 
-                                  : 'text-white'
-                            }`}>
+                            <span className={`text-lg font-semibold font-mono tracking-tight transition-colors duration-300 ${priceDirections[symbol] === 'up' ? 'text-emerald-500' : (priceDirections[symbol] === 'down' ? 'text-red-500' : 'text-white')}`}>
                               ${livePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              {priceHistory[symbol]?.direction === 'up' && <span className="text-[10px] ml-1 text-emerald-500">▲</span>}
-                              {priceHistory[symbol]?.direction === 'down' && <span className="text-[10px] ml-1 text-rose-500">▼</span>}
                             </span>
                           </div>
                         </div>
@@ -1011,7 +997,7 @@ export default function Dashboard() {
                                 </span>
                               </td>
                               <td className="py-4 font-mono">${entry.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
-                              <td className={`py-4 font-mono ${isProfit ? 'text-emerald-500' : 'text-rose-500'}`}>${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
+                              <td className="py-4 font-mono text-zinc-500">${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
                               <td className="py-4 font-mono">
                                 <span className="block text-zinc-300">{qty.toFixed(5)}</span>
                                 <span className="text-[10px] text-zinc-550">${(qty * entry).toFixed(2)} USDT</span>
@@ -1020,7 +1006,7 @@ export default function Dashboard() {
                                 <div className="text-zinc-500">SL: ${parseFloat(t.sl).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                                 <div className="text-zinc-300">TP: ${parseFloat(t.tp).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                               </td>
-                              <td className={`py-4 text-right font-mono font-semibold ${isProfit ? 'text-white' : 'text-zinc-550'}`}>
+                              <td className={`py-4 text-right font-mono font-semibold ${isProfit ? 'text-emerald-500' : 'text-red-500'}`}>
                                 <div className="text-sm">{isProfit ? '+$' : '-$'}{Math.abs(pnlVal).toFixed(2)}</div>
                                 <div className="text-[10px]">{isProfit ? '+' : ''}{pnlPct.toFixed(2)}%</div>
                               </td>
@@ -1348,7 +1334,7 @@ export default function Dashboard() {
                                 <span className="font-mono text-[9px]">{item.closed_at ? new Date(item.closed_at).toLocaleTimeString() : 'N/A'}</span>
                               </div>
                             </div>
-                            <span className={`font-mono text-xs px-2.5 py-0.5 rounded-full border ${isProfit ? 'border-emerald-500/20 text-emerald-500 bg-emerald-500/5 font-semibold' : 'border-rose-500/20 text-rose-500 bg-rose-500/5 font-semibold'}`}>
+                            <span className={`font-mono text-xs px-2.5 py-0.5 rounded-full border ${isProfit ? 'border-emerald-950 bg-emerald-950/20 text-emerald-500 font-semibold' : 'border-red-950 bg-red-950/20 text-red-500 font-semibold'}`}>
                               {isProfit ? '+$' : '-$'}{Math.abs(pnl).toFixed(2)}
                             </span>
                           </div>
@@ -1411,7 +1397,7 @@ export default function Dashboard() {
                 </div>
                 <div className="bg-zinc-950/40 border border-zinc-900 rounded-xl p-3">
                   <span className="text-zinc-500 block text-[9px] uppercase tracking-wider font-mono">LIVE VALUE</span>
-                  <span className="text-white font-bold font-mono tracking-wide text-sm mt-0.5">${livePrice.toLocaleString()}</span>
+                  <span className={`font-bold font-mono tracking-wide text-sm mt-0.5 transition-colors duration-300 ${priceDirections[symbol] === 'up' ? 'text-emerald-500' : (priceDirections[symbol] === 'down' ? 'text-red-500' : 'text-white')}`}>${livePrice.toLocaleString()}</span>
                 </div>
               </div>
 
