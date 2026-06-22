@@ -46,3 +46,7 @@ bot_commands.json
 # Node Modules
 node_modules/
 **/node_modules/
+
+# Allow Next.js standalone build and all its subfolders/files
+!frontend/.next/standalone/
+!frontend/.next/standalone/**
