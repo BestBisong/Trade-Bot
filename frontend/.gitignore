@@ -18,8 +18,8 @@
 /out/
 
 # node modules
-node_modules/
-**/node_modules/
+/node_modules/
+!/.next/standalone/node_modules/
 
 # production
 /build
