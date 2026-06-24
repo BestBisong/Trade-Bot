@@ -428,11 +428,13 @@ export default function Dashboard() {
   const activeSettings = backendOnline ? systemState.settings : sandboxState.settings;
   const [localSettings, setLocalSettings] = useState<BotSettings | null>(null);
 
+  const activeSettingsStr = JSON.stringify(activeSettings);
+
   useEffect(() => {
-    if (activeSettings && !localSettings) {
+    if (activeSettings) {
       setLocalSettings(activeSettings);
     }
-  }, [activeSettings, localSettings]);
+  }, [activeSettingsStr]);
 
   const displayedSettings = localSettings || activeSettings;
   const hasUnsavedChanges = !!(localSettings && JSON.stringify(localSettings) !== JSON.stringify(activeSettings));

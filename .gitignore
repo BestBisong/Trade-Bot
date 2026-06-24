@@ -47,6 +47,9 @@ bot_commands.json
 node_modules/
 **/node_modules/
 
+# Temporary scratch scripts
+scratch/
+
 # Allow Next.js standalone build and all its subfolders/files
 !frontend/.next/standalone/
 !frontend/.next/standalone/**

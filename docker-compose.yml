@@ -16,6 +16,7 @@ services:
       - ./active_trades.json:/app/active_trades.json
       - ./scan_heartbeat.json:/app/scan_heartbeat.json
       - ./trade_history.json:/app/trade_history.json
+      - ./settings_config.json:/app/settings_config.json
       - ./logs:/app/logs
 
   frontend:
